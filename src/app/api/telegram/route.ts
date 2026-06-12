@@ -3,8 +3,17 @@ import { scrapeTelegramChannels } from '@/lib/telegramScraper';
 
 export async function POST(req: NextRequest) {
   // Verify cron secret to prevent unauthorized calls
-  const secret = req.headers.get('x-cron-secret');
-  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+  const authHeader = req.headers.get('authorization');
+  const manualSecret = req.headers.get('x-cron-secret');
+  const expectedAuthHeader = process.env.CRON_SECRET
+    ? `Bearer ${process.env.CRON_SECRET}`
+    : null;
+
+  if (
+    process.env.CRON_SECRET &&
+    authHeader !== expectedAuthHeader &&
+    manualSecret !== process.env.CRON_SECRET
+  ) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
