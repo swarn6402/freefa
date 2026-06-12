@@ -84,6 +84,8 @@ export default async function HomePage() {
             title="Live"
             icon="🔴"
             matches={liveWithStreams}
+            cardVariant="home"
+            tone="home"
           />
         )}
 
@@ -93,6 +95,8 @@ export default async function HomePage() {
           icon="📅"
           matches={upcomingWithStreams}
           emptyMessage="No upcoming matches scheduled yet."
+          cardVariant="home"
+          tone="home"
         />
 
         {/* Standings preview */}
@@ -118,6 +122,8 @@ export default async function HomePage() {
             title="Results"
             icon="✅"
             matches={finishedWithStreams}
+            cardVariant="home"
+            tone="home"
           />
         )}
       </div>
