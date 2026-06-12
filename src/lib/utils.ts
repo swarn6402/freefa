@@ -2,26 +2,31 @@ import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Match } from '@/types';
 
+const DISPLAY_LOCALE = 'en-IN';
+const DISPLAY_TIME_ZONE = 'Asia/Kolkata';
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 export function formatMatchTime(utcDate: string): string {
   const date = new Date(utcDate);
-  return date.toLocaleTimeString('en-US', {
+  return date.toLocaleTimeString(DISPLAY_LOCALE, {
     hour: '2-digit',
     minute: '2-digit',
     hour12: true,
     timeZoneName: 'short',
+    timeZone: DISPLAY_TIME_ZONE,
   });
 }
 
 export function formatMatchDate(utcDate: string): string {
   const date = new Date(utcDate);
-  return date.toLocaleDateString('en-US', {
+  return date.toLocaleDateString(DISPLAY_LOCALE, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
+    timeZone: DISPLAY_TIME_ZONE,
   });
 }
 
