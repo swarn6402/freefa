@@ -130,3 +130,4 @@ Creating turbopack project { dir: 'C:\\Users\\swarn\\Downloads\\wc2026\\wc2026',
 [matchService] football-data.org request succeeded: 200
 [matchService] football-data.org matches returned: 104
  GET /api/matches/537345 200 in 3.6s (next.js: 551ms, application-code: 3.1s)
+  Reload env: .env.local
