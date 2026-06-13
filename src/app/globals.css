@@ -1,12 +1,9 @@
 @import "tailwindcss";
 
-/* ——————————————————————————
-   World Cup 2026 Design Tokens
-—————————————————————————— */
 :root {
-  --wc-gold: #C9A84C;
-  --wc-gold-light: #E5C97A;
-  --wc-gold-dark: #9A7A32;
+  --wc-gold: #c9a84c;
+  --wc-gold-light: #e5c97a;
+  --wc-gold-dark: #9a7a32;
   --background: #000000;
   --foreground: #ffffff;
 }
@@ -17,44 +14,85 @@
   --color-wc-gold: var(--wc-gold);
   --color-wc-gold-light: var(--wc-gold-light);
   --color-wc-gold-dark: var(--wc-gold-dark);
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'SF Mono', 'Fira Code', Consolas, monospace;
-  --font-display: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: var(--font-sora), var(--font-inter), sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
+  text-rendering: optimizeLegibility;
 }
 
+h1,
+h2,
+h3,
 .font-display {
+  font-family: var(--font-display), var(--font-sans), sans-serif;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
 }
 
-html {
-  scroll-behavior: smooth;
+p,
+span,
+a,
+button,
+input {
+  letter-spacing: 0;
 }
 
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: #111; }
-::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: #555; }
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: #111;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
 
 @keyframes live-glow {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
 }
 
-.live-glow { animation: live-glow 2s ease-in-out infinite; }
+.live-glow {
+  animation: live-glow 2s ease-in-out infinite;
+}
 
 .pitch-bg {
   background-color: #020408;
   background-image:
-    radial-gradient(circle at top, rgba(201,168,76,0.09), transparent 32%),
-    radial-gradient(circle at left top, rgba(59,130,246,0.07), transparent 26%),
-    linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    radial-gradient(circle at top, rgba(201, 168, 76, 0.09), transparent 32%),
+    radial-gradient(circle at left top, rgba(59, 130, 246, 0.07), transparent 26%),
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
   background-size: auto, auto, 40px 40px, 40px 40px;
+}
+
+@media (max-width: 640px) {
+  .pitch-bg {
+    background-size: auto, auto, 28px 28px, 28px 28px;
+  }
 }
