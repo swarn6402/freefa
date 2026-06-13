@@ -1,10 +1,17 @@
 import Link from 'next/link';
 import { Match } from '@/types';
-import { cn, formatGroupName, formatMatchDate, formatMatchLocation, formatMatchTime, getStageName } from '@/lib/utils';
-import { ScoreDisplay } from './ScoreDisplay';
+import {
+  cn,
+  formatGroupName,
+  formatMatchDate,
+  formatMatchLocation,
+  formatMatchTime,
+  getStageName,
+} from '@/lib/utils';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
-import { LiveBadge } from '@/components/ui/LiveBadge';
 import { FlagIcon } from '@/components/ui/FlagIcon';
+import { LiveBadge } from '@/components/ui/LiveBadge';
+import { ScoreDisplay } from './ScoreDisplay';
 
 interface MatchCardProps {
   match: Match;
@@ -26,11 +33,9 @@ export function MatchCard({ match, variant = 'default' }: MatchCardProps) {
           isHomeVariant
             ? 'rounded-2xl border border-white/8 bg-gradient-to-b from-zinc-900/95 via-zinc-950 to-black shadow-[0_18px_40px_rgba(0,0,0,0.28)]'
             : 'rounded-xl border bg-gradient-to-b from-zinc-900 to-zinc-950',
-          'hover:border-wc-gold/50 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-wc-gold/10',
-          isLive
-            ? 'border-red-600/60 shadow-md shadow-red-900/30'
-            : 'border-zinc-800/60',
-          variant === 'compact' ? 'p-3' : isHomeVariant ? 'p-4 md:p-[18px]' : 'p-4'
+          'hover:-translate-y-0.5 hover:border-wc-gold/50 hover:shadow-lg hover:shadow-wc-gold/10',
+          isLive ? 'border-red-600/60 shadow-md shadow-red-900/30' : 'border-zinc-800/60',
+          variant === 'compact' ? 'p-3' : isHomeVariant ? 'p-4 sm:p-[18px]' : 'p-4'
         )}
       >
         {isHomeVariant && (
@@ -42,112 +47,129 @@ export function MatchCard({ match, variant = 'default' }: MatchCardProps) {
           </>
         )}
 
-        {/* Live glow overlay */}
-        {isLive && (
-          <div className="absolute inset-0 bg-gradient-to-b from-red-950/20 to-transparent pointer-events-none" />
-        )}
+        {isLive && <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-red-950/20 to-transparent" />}
 
-        {/* Stage & Group badge */}
-        <div className={cn('relative z-10 flex items-center justify-between mb-3', isHomeVariant && 'mb-4')}>
+        <div className={cn('relative z-10 mb-3 flex items-start justify-between gap-2', isHomeVariant && 'mb-4')}>
           <span
             className={cn(
-              'text-[10px] font-bold uppercase tracking-widest text-zinc-500',
+              'pr-2 text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500',
               isHomeVariant && 'text-zinc-400'
             )}
           >
             {match.group ? formatGroupName(match.group) : getStageName(match.stage)}
           </span>
-          {isLive && <LiveBadge size="sm" />}
-          {isScheduled && (
-            <span
-              className={cn(
-                'text-[10px] text-zinc-500 font-mono',
-                isHomeVariant && 'rounded-full border border-white/8 bg-white/[0.04] px-2 py-1 text-zinc-300'
-              )}
-            >
-              {formatMatchDate(match.utcDate)}
-            </span>
-          )}
-          {isFinished && (
-            <span className="text-[10px] font-bold tracking-wider text-zinc-600">FT</span>
-          )}
+
+          <div className="flex shrink-0 items-center gap-2">
+            {isLive && <LiveBadge size="sm" />}
+            {isScheduled && (
+              <span
+                className={cn(
+                  'text-[10px] font-mono text-zinc-500',
+                  isHomeVariant && 'rounded-full border border-white/8 bg-white/[0.04] px-2 py-1 text-zinc-300'
+                )}
+              >
+                {formatMatchDate(match.utcDate)}
+              </span>
+            )}
+            {isFinished && <span className="text-[10px] font-bold tracking-wider text-zinc-600">FT</span>}
+          </div>
         </div>
 
-        {/* Teams + Score */}
-        <div className={cn('relative z-10 flex items-center justify-between gap-2', isHomeVariant && 'gap-3')}>
-          {/* Home Team */}
-          <div className="flex-1 flex flex-col items-start min-w-0">
-            <FlagIcon
-              flag={match.homeTeam.flag}
-              teamName={match.homeTeam.name}
-              size={isHomeVariant ? 40 : 32}
-              className={cn('mb-1', isHomeVariant ? 'h-10 w-10' : 'h-8 w-8')}
-            />
-            <span className={cn('font-bold text-white truncate max-w-full leading-tight', isHomeVariant ? 'text-[15px]' : 'text-sm')}>
-              {match.homeTeam.shortName}
-            </span>
-            <span className="text-[10px] text-zinc-500 uppercase tracking-widest">
-              {match.homeTeam.tla}
-            </span>
-          </div>
+        <div className={cn('relative z-10 flex items-center justify-between gap-3', isHomeVariant && 'gap-4')}>
+          <TeamCell team={match.homeTeam} align="left" isHomeVariant={isHomeVariant} />
 
-          {/* Score / Kickoff */}
-          <div className={cn('flex-none text-center px-2', isHomeVariant && 'rounded-xl border border-white/6 bg-white/[0.03] py-3')}>
+          <div
+            className={cn(
+              'flex-none px-1.5 text-center',
+              isHomeVariant && 'min-w-[90px] rounded-xl border border-white/6 bg-white/[0.03] px-2 py-3'
+            )}
+          >
             <ScoreDisplay match={match} size="sm" />
             {isScheduled && (
-              <div className="mt-1 text-[11px] text-wc-gold font-mono font-bold">
+              <div className="mt-1 text-[11px] font-bold text-wc-gold">
                 {formatMatchTime(match.utcDate)}
               </div>
             )}
           </div>
 
-          {/* Away Team */}
-          <div className="flex-1 flex flex-col items-end min-w-0">
-            <FlagIcon
-              flag={match.awayTeam.flag}
-              teamName={match.awayTeam.name}
-              size={isHomeVariant ? 40 : 32}
-              className={cn('mb-1', isHomeVariant ? 'h-10 w-10' : 'h-8 w-8')}
-            />
-            <span className={cn('font-bold text-white truncate max-w-full leading-tight text-right', isHomeVariant ? 'text-[15px]' : 'text-sm')}>
-              {match.awayTeam.shortName}
-            </span>
-            <span className="text-[10px] text-zinc-500 uppercase tracking-widest">
-              {match.awayTeam.tla}
-            </span>
-          </div>
+          <TeamCell team={match.awayTeam} align="right" isHomeVariant={isHomeVariant} />
         </div>
 
-        {/* Venue */}
         {variant !== 'compact' && (
-          <div className={cn('relative z-10 mt-3 pt-3 border-t border-zinc-800/60 flex items-center justify-between', isHomeVariant && 'mt-4 border-white/6')}>
-            <span className={cn('text-[10px] truncate', isHomeVariant ? 'text-zinc-500' : 'text-zinc-600')}>
-              📍 {formatMatchLocation(match)}
+          <div
+            className={cn(
+              'relative z-10 mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-800/60 pt-3',
+              isHomeVariant && 'mt-4 border-white/6'
+            )}
+          >
+            <span className={cn('min-w-0 truncate text-[10px]', isHomeVariant ? 'text-zinc-500' : 'text-zinc-600')}>
+              {formatMatchLocation(match)}
             </span>
 
-            {isScheduled && (
-              <span className={cn('text-[10px] text-wc-gold font-mono font-bold whitespace-nowrap', isHomeVariant && 'text-[11px]')}>
-                <CountdownTimer utcDate={match.utcDate} />
-              </span>
-            )}
+            <div className="ml-auto flex items-center gap-2">
+              {isScheduled && (
+                <span
+                  className={cn(
+                    'whitespace-nowrap text-[10px] font-bold text-wc-gold',
+                    isHomeVariant && 'text-[11px]'
+                  )}
+                >
+                  <CountdownTimer utcDate={match.utcDate} />
+                </span>
+              )}
 
-            {(isLive || isScheduled) && (
-              <span
-                className={cn(
-                  'text-[10px] font-bold px-2 py-0.5 rounded',
-                  hasStreams
-                    ? 'bg-wc-gold/20 text-wc-gold'
-                    : isHomeVariant
-                      ? 'border border-white/8 bg-white/[0.06] text-zinc-500'
-                      : 'bg-zinc-800 text-zinc-600'
-                )}
-              >
-                {hasStreams ? `▶ ${match.streams!.length} stream${match.streams!.length > 1 ? 's' : ''}` : '▶ Watch'}
-              </span>
-            )}
+              {(isLive || isScheduled) && (
+                <span
+                  className={cn(
+                    'rounded px-2 py-0.5 text-[10px] font-bold',
+                    hasStreams
+                      ? 'bg-wc-gold/20 text-wc-gold'
+                      : isHomeVariant
+                        ? 'border border-white/8 bg-white/[0.06] text-zinc-500'
+                        : 'bg-zinc-800 text-zinc-600'
+                  )}
+                >
+                  {hasStreams
+                    ? `Watch ${match.streams!.length}`
+                    : 'Watch'}
+                </span>
+              )}
+            </div>
           </div>
         )}
       </article>
     </Link>
+  );
+}
+
+function TeamCell({
+  team,
+  align,
+  isHomeVariant,
+}: {
+  team: Match['homeTeam'];
+  align: 'left' | 'right';
+  isHomeVariant: boolean;
+}) {
+  const alignmentClass = align === 'right' ? 'items-end text-right' : 'items-start text-left';
+
+  return (
+    <div className={cn('flex min-w-0 flex-1 flex-col', alignmentClass)}>
+      <FlagIcon
+        flag={team.flag}
+        teamName={team.name}
+        size={isHomeVariant ? 40 : 32}
+        className={cn('mb-2', isHomeVariant ? 'h-10 w-10' : 'h-8 w-8')}
+      />
+      <span
+        className={cn(
+          'max-w-full truncate font-bold leading-tight text-white',
+          isHomeVariant ? 'text-sm sm:text-[15px]' : 'text-sm'
+        )}
+      >
+        {team.shortName}
+      </span>
+      <span className="mt-0.5 text-[10px] uppercase tracking-widest text-zinc-500">{team.tla}</span>
+    </div>
   );
 }
