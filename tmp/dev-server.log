@@ -1,0 +1,132 @@
+
+> wc2026@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.9 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.29.249:3000
+- Environments: .env.local
+✓ Ready in 6.2s
+Creating turbopack project { dir: 'C:\\Users\\swarn\\Downloads\\wc2026\\wc2026', testMode: true }
+
+[33m[2026-06-13T06:37:04.544] [INFO] - [Running gramJS version 2.26.21][0m
+[Telegram] Loaded channels from TELEGRAM_CHANNELS: [
+  { value: 'Footstersreal', type: 'username' },
+  { value: '-1002281665422', type: 'channel ID' },
+  { value: '-1001533565122', type: 'channel ID' },
+  { value: '-1003789253903', type: 'channel ID' }
+]
+[33m[2026-06-13T06:37:04.569] [INFO] - [Connecting to 91.108.56.196:80/TCPFull...][0m
+[matchService] FOOTBALL_DATA_API_KEY detected: true
+[matchService] Requesting football-data.org matches: https://api.football-data.org/v4/competitions/WC/matches?season=2026
+[33m[2026-06-13T06:37:04.786] [INFO] - [Connection to 91.108.56.196:80/TCPFull complete!][0m
+[33m[2026-06-13T06:37:04.788] [INFO] - [Using LAYER 198 for initial connect][0m
+[matchService] football-data.org request succeeded: 200
+[matchService] football-data.org matches returned: 104
+[Telegram] Telegram login succeeded
+[Telegram] Resolving channel entry "Footstersreal" as username
+[Telegram] Raw message text from Footstersreal: {
+  messageId: 5,
+  text: 'main channel link\n' +
+    '\n' +
+    'Join for all football matches live link and News \n' +
+    '\n' +
+    'https://t.me/+ZzN-jTC-pyxiMTc1\n' +
+    'https://t.me/+ZzN-jTC-pyxiMTc1\n' +
+    'https://t.me/+ZzN-jTC-pyxiMTc1'
+}
+[Telegram] Raw message text from Footstersreal: { messageId: 1, text: '' }
+[Telegram] Messages fetched from Footstersreal: 2
+[Telegram] URLs extracted from Footstersreal: 0
+[Telegram] Telegram invite/post links discarded from Footstersreal: 1
+[Telegram] Resolving channel entry "-1002281665422" as channel ID
+[Telegram] Messages fetched from -1002281665422: 100
+[Telegram] URLs extracted from -1002281665422: 0
+[Telegram] Telegram invite/post links discarded from -1002281665422: 2
+[Telegram] Resolving channel entry "-1001533565122" as channel ID
+ GET /api/matches 200 in 1832ms (next.js: 174ms, application-code: 1658ms)
+[Telegram] Messages fetched from -1001533565122: 11
+[Telegram] URLs extracted from -1001533565122: 9
+[Telegram] Telegram invite/post links discarded from -1001533565122: 9
+[Telegram] Resolving channel entry "-1003789253903" as channel ID
+[Telegram] Messages fetched from -1003789253903: 5
+[Telegram] URLs extracted from -1003789253903: 0
+[Telegram] Telegram invite/post links discarded from -1003789253903: 1
+[Telegram] Extracted stream URLs from message: [
+  'https://fifa26-live.pages.dev/?play=2&stream=11',
+  'https://footsters.api-live.workers.dev/?play=10033&stream=1',
+  'https://fifa26-live.pages.dev/?play=2&stream=17',
+  'https://fifa26-live.pages.dev/?play=2&stream=4',
+  'https://fifa26-live.pages.dev/?play=2&stream=5',
+  'https://footsters.api-live.workers.dev/?play=10033&stream=2',
+  'https://fifa26-live.pages.dev/?play=2&stream=9',
+  'https://fifa.allsports877.workers.dev/?play=2&stream=10',
+  'https://live.api-live.workers.dev/?id=tsn4'
+]
+[Telegram] Match candidate: { matchId: '537345', confidenceScore: 1.0947644252537633e-47 }
+[Telegram] Stream storage result: {
+  url: 'https://fifa26-live.pages.dev/?play=2&stream=11',
+  matchId: '537345',
+  confidenceScore: 1.0947644252537633e-47,
+  stored: true
+}
+[Telegram] Stream storage result: {
+  url: 'https://footsters.api-live.workers.dev/?play=10033&stream=1',
+  matchId: '537345',
+  confidenceScore: 1.0947644252537633e-47,
+  stored: true
+}
+[Telegram] Stream storage result: {
+  url: 'https://fifa26-live.pages.dev/?play=2&stream=17',
+  matchId: '537345',
+  confidenceScore: 1.0947644252537633e-47,
+  stored: true
+}
+[Telegram] Stream storage result: {
+  url: 'https://fifa26-live.pages.dev/?play=2&stream=4',
+  matchId: '537345',
+  confidenceScore: 1.0947644252537633e-47,
+  stored: true
+}
+[Telegram] Stream storage result: {
+  url: 'https://fifa26-live.pages.dev/?play=2&stream=5',
+  matchId: '537345',
+  confidenceScore: 1.0947644252537633e-47,
+  stored: true
+}
+[Telegram] Stream storage result: {
+  url: 'https://footsters.api-live.workers.dev/?play=10033&stream=2',
+  matchId: '537345',
+  confidenceScore: 1.0947644252537633e-47,
+  stored: true
+}
+[Telegram] Stream storage result: {
+  url: 'https://fifa26-live.pages.dev/?play=2&stream=9',
+  matchId: '537345',
+  confidenceScore: 1.0947644252537633e-47,
+  stored: true
+}
+[Telegram] Stream storage result: {
+  url: 'https://fifa.allsports877.workers.dev/?play=2&stream=10',
+  matchId: '537345',
+  confidenceScore: 1.0947644252537633e-47,
+  stored: true
+}
+[Telegram] Stream storage result: {
+  url: 'https://live.api-live.workers.dev/?id=tsn4',
+  matchId: '537345',
+  confidenceScore: 1.0947644252537633e-47,
+  stored: true
+}
+[35m[2026-06-13T06:37:11.294] [WARN] - [Disconnecting...][0m
+[33m[2026-06-13T06:37:11.295] [INFO] - [Disconnecting from 91.108.56.196:80/TCPFull...][0m
+ GET /api/telegram 200 in 9.2s (next.js: 2.4s, application-code: 6.8s)
+[33m[2026-06-13T06:37:11.309] [INFO] - [connection closed][0m
+ GET /api/streams?matchId=537345 200 in 618ms (next.js: 120ms, application-code: 498ms)
+ GET /api/matches/537345 200 in 2.6s (next.js: 2.4s, application-code: 200ms)
+  Reload env: .env.local
+[matchService] FOOTBALL_DATA_API_KEY detected: true
+[matchService] Requesting football-data.org matches: https://api.football-data.org/v4/competitions/WC/matches?season=2026
+[matchService] football-data.org request succeeded: 200
+[matchService] football-data.org matches returned: 104
+ GET /api/matches/537345 200 in 3.6s (next.js: 551ms, application-code: 3.1s)

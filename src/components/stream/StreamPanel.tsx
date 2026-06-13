@@ -34,7 +34,6 @@ export function StreamPanel({ streams, matchId }: StreamPanelProps) {
 
   return (
     <div className="rounded-xl border border-wc-gold/30 bg-zinc-900/50 overflow-hidden">
-      {/* Header */}
       <div className="px-4 py-3 bg-wc-gold/10 border-b border-wc-gold/20 flex items-center justify-between">
         <h3 className="text-base font-bold text-white flex items-center gap-2">
           <span>📡</span> Watch Live
@@ -44,7 +43,6 @@ export function StreamPanel({ streams, matchId }: StreamPanelProps) {
         </span>
       </div>
 
-      {/* Stream list */}
       <div className="divide-y divide-zinc-800/60">
         {streams.map((stream, idx) => (
           <StreamRow key={stream.id} stream={stream} index={idx + 1} />
@@ -77,28 +75,20 @@ function StreamRow({ stream, index }: { stream: StreamLink; index: number }) {
       rel="noopener noreferrer"
       className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-800/50 transition-colors group"
     >
-      {/* Index */}
       <span className="text-xs text-zinc-600 font-mono w-5 flex-none text-center">{index}</span>
 
-      {/* Info */}
       <div className="flex-1 min-w-0">
         <p className="text-sm text-white font-medium group-hover:text-wc-gold transition-colors truncate">
-          {stream.label}
-        </p>
-        <p className="text-xs text-zinc-500 mt-0.5">
-          via @{stream.source}
-          {stream.language && ` · ${stream.language}`}
+          Stream {index}
         </p>
       </div>
 
-      {/* Quality badge */}
       {stream.quality && (
         <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded flex-none', qualityColor)}>
           {stream.quality}
         </span>
       )}
 
-      {/* Arrow */}
       <span className="text-zinc-600 group-hover:text-wc-gold transition-colors flex-none">→</span>
     </a>
   );
