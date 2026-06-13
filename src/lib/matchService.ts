@@ -1,4 +1,5 @@
 import { Match, StreamLink } from '@/types';
+import { enrichMatchWithApiFootballDetail, enrichMatchesWithApiFootballSchedule } from './apiFootballService';
 import { generateFixtures, TEAMS } from './fixtures';
 import { enrichMatchesWithOfficialVenues } from './venueEnrichment';
 import {
@@ -68,7 +69,8 @@ export async function getAllMatches(): Promise<Match[]> {
 
       if (res.ok) {
         const data = await res.json();
-        const mapped = await enrichMatchesWithOfficialVenues(mapFootballDataMatches(data.matches));
+        const venueEnriched = await enrichMatchesWithOfficialVenues(mapFootballDataMatches(data.matches));
+        const mapped = await enrichMatchesWithApiFootballSchedule(venueEnriched);
         console.log('[matchService] football-data.org request succeeded:', res.status);
         console.log('[matchService] football-data.org matches returned:', mapped.length);
         matchCache = mapped;
@@ -96,7 +98,12 @@ export async function getAllMatches(): Promise<Match[]> {
 
 export async function getMatchById(id: string): Promise<Match | null> {
   const matches = await getAllMatches();
-  return matches.find((m) => m.id === id) || null;
+  const match = matches.find((m) => m.id === id) || null;
+  if (!match) {
+    return null;
+  }
+
+  return enrichMatchWithApiFootballDetail(match);
 }
 
 export async function getLiveMatches(): Promise<Match[]> {
