@@ -53,6 +53,14 @@ const MANUAL_OFFICIAL_MATCHES: OfficialVenueMatch[] = [
     city: 'Guadalajara',
     country: 'Mexico',
   },
+  {
+    utcDate: '2026-06-13T01:00:00Z',
+    stageKey: 'group-stage',
+    teamPairKey: buildTeamPairKey('United States', 'Paraguay'),
+    venue: 'Los Angeles Stadium',
+    city: 'Inglewood',
+    country: 'USA',
+  },
 ];
 
 let venueIndexCache: OfficialVenueIndex | null = null;
