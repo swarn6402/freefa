@@ -77,11 +77,13 @@ interface ApiFootballTeamStatistics {
 }
 
 interface ApiFootballResponse<T> {
+  errors?: Record<string, string>;
   response: T[];
 }
 
 let scheduleCache: ApiFootballFixture[] | null = null;
 let scheduleCacheAt = 0;
+let apiFootballDisabledReason: string | null = null;
 
 const detailCache = new Map<number, { fixture: ApiFootballFixture; fetchedAt: number }>();
 
@@ -91,6 +93,10 @@ export function hasApiFootballKey(): boolean {
 
 export async function enrichMatchesWithApiFootballSchedule(matches: Match[]): Promise<Match[]> {
   if (!hasApiFootballKey()) {
+    return matches;
+  }
+
+  if (apiFootballDisabledReason) {
     return matches;
   }
 
@@ -109,6 +115,9 @@ export async function enrichMatchesWithApiFootballSchedule(matches: Match[]): Pr
       return mergeScheduleData(match, fixture);
     });
   } catch (error) {
+    if (apiFootballDisabledReason) {
+      return matches;
+    }
     console.warn('[apiFootball] Failed to enrich matches with schedule data:', error);
     return matches;
   }
@@ -116,6 +125,10 @@ export async function enrichMatchesWithApiFootballSchedule(matches: Match[]): Pr
 
 export async function enrichMatchWithApiFootballDetail(match: Match): Promise<Match> {
   if (!hasApiFootballKey()) {
+    return match;
+  }
+
+  if (apiFootballDisabledReason) {
     return match;
   }
 
@@ -133,6 +146,9 @@ export async function enrichMatchWithApiFootballDetail(match: Match): Promise<Ma
 
     return mergeDetailData(mergeScheduleData(match, detailFixture), detailFixture);
   } catch (error) {
+    if (apiFootballDisabledReason) {
+      return match;
+    }
     console.warn('[apiFootball] Failed to enrich match with live detail:', error);
     return match;
   }
@@ -204,6 +220,18 @@ async function fetchApiFootball<T>(
   }
 
   const data = (await response.json()) as ApiFootballResponse<T>;
+  const errors = data.errors || {};
+  const firstError = Object.values(errors).find(Boolean);
+
+  if (firstError) {
+    if (firstError.toLowerCase().includes('free plans do not have access to this season')) {
+      apiFootballDisabledReason = firstError;
+      console.warn('[apiFootball] Disabled for current runtime:', firstError);
+    }
+
+    throw new Error(firstError);
+  }
+
   return data.response || [];
 }
 

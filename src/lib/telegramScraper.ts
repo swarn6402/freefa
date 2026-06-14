@@ -5,18 +5,42 @@ import { StreamLink } from '@/types';
 import { getAllMatches } from './matchService';
 import { addStreamLink } from './matchService';
 
-// Stream link patterns - extended for various streaming formats
-const STREAM_LINK_PATTERNS = [
-  /https?:\/\/[^\s<>"]+(?:m3u8|stream|live|watch|hls)[^\s<>"]*/gi,
-  /https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[^\s<>"]*/gi,
-  /https?:\/\/[^\s<>"]*\/(?:live|stream|watch)(?:\/[^\s<>"]*)?/gi,
-  /https?:\/\/t\.me\/[^\s<>"]*/gi,
-  /rtmp?:\/\/[^\s<>"]*/gi,
+const GENERIC_URL_PATTERN = /https?:\/\/[^\s<>"]+/gi;
+const RTMP_URL_PATTERN = /rtmp?:\/\/[^\s<>"]+/gi;
+const STREAM_URL_HINTS = [
+  'm3u8',
+  'stream',
+  'live',
+  'watch',
+  'hls',
+  'embed',
+  'player',
+  'play',
+  'broadcast',
+  'channel',
+  'sport',
+  'soccer',
+  'football',
+  'match',
+  'tv',
+];
+const STREAM_CONTEXT_KEYWORDS = [
+  'live',
+  'stream',
+  'watch',
+  'kickoff',
+  'kick off',
+  'kick-off',
+  'match',
+  'vs',
+  'hd',
+  'link',
+  'links',
 ];
 
 // Team name aliases for fuzzy matching
 const TEAM_ALIASES: Record<string, string[]> = {
-  USA: ['united states', 'usa', 'us', 'america', 'usmnt'],
+  USA: ['united states', 'usa', 'america', 'usmnt'],
   ARG: ['argentina', 'arg', 'albiceleste'],
   BRA: ['brazil', 'bra', 'brasil', 'selecao'],
   FRA: ['france', 'fra', 'les bleus'],
@@ -43,7 +67,8 @@ interface TelegramChannelTarget {
   type: 'username' | 'channel ID';
 }
 
-const TELEGRAM_MESSAGE_LIMIT = 100;
+const TELEGRAM_MESSAGE_LIMIT = 200;
+const MATCH_WINDOW_HOURS = 36;
 const TELEGRAM_HOSTS = new Set(['t.me', 'www.t.me', 'telegram.me', 'www.telegram.me']);
 
 export async function scrapeTelegramChannels(): Promise<void> {
@@ -172,55 +197,31 @@ async function matchLinksToFixtures(messages: TelegramMessage[]): Promise<void> 
   const matches = await getAllMatches();
   const now = new Date();
 
-  // Only consider matches within 24h window
+  // Only consider nearby matches so stream links do not land on stale fixtures.
   const relevantMatches = matches.filter((m) => {
     const matchTime = new Date(m.utcDate);
     const diffHours = Math.abs(matchTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-    return diffHours <= 24;
+    return diffHours <= MATCH_WINDOW_HOURS;
   });
 
-  // Build a search index
-  const searchIndex = relevantMatches.flatMap((match) => [
-    {
-      matchId: match.id,
-      terms: [
-        match.homeTeam.name.toLowerCase(),
-        match.homeTeam.shortName.toLowerCase(),
-        match.homeTeam.tla.toLowerCase(),
-        match.awayTeam.name.toLowerCase(),
-        match.awayTeam.shortName.toLowerCase(),
-        match.awayTeam.tla.toLowerCase(),
-        // Add aliases
-        ...(TEAM_ALIASES[match.homeTeam.tla] || []),
-        ...(TEAM_ALIASES[match.awayTeam.tla] || []),
-      ],
-    },
-  ]);
+  const searchIndex = relevantMatches.map((match) => ({
+    matchId: match.id,
+    terms: buildMatchSearchTerms(match),
+    group: match.group?.toLowerCase() || '',
+    stage: match.stage.toLowerCase(),
+  }));
 
   const fuse = new Fuse(searchIndex, {
-    keys: ['terms'],
-    threshold: 0.3,
+    keys: ['terms', 'group', 'stage'],
+    threshold: 0.4,
     includeScore: true,
   });
 
   for (const message of messages) {
-    // Extract stream links from message
     const { accepted: links, discardedTelegram } = extractCandidateLinks(message.text);
     if (links.length === 0) continue;
 
-    // Try to find which match this message is about
-    const words = message.text.toLowerCase().split(/\s+/);
-    let bestMatchId: string | null = null;
-    let bestScore = Infinity;
-
-    for (const word of words) {
-      if (word.length < 3) continue;
-      const results = fuse.search(word);
-      if (results.length > 0 && (results[0].score || 1) < bestScore) {
-        bestScore = results[0].score || 1;
-        bestMatchId = results[0].item.matchId;
-      }
-    }
+    const { bestMatchId, bestScore } = findBestMatchForMessage(message.text, searchIndex, fuse);
 
     console.log('[Telegram] Extracted stream URLs from message:', links);
     if (discardedTelegram.length > 0) {
@@ -269,19 +270,25 @@ function extractCandidateLinks(text: string): {
   accepted: string[];
   discardedTelegram: string[];
 } {
-  const links: string[] = [];
-  for (const pattern of STREAM_LINK_PATTERNS) {
-    const matches = text.match(pattern) || [];
-    links.push(...matches);
-  }
+  const links = [
+    ...(text.match(GENERIC_URL_PATTERN) || []),
+    ...(text.match(RTMP_URL_PATTERN) || []),
+  ].map(cleanExtractedUrl);
 
   const deduped = [...new Set(links)];
   const accepted: string[] = [];
   const discardedTelegram: string[] = [];
+  const hasStreamContext = hasStreamContextKeywords(text);
 
   for (const link of deduped) {
+    if (!link) continue;
+
     if (isTelegramLink(link)) {
       discardedTelegram.push(link);
+      continue;
+    }
+
+    if (!isLikelyStreamLink(link, hasStreamContext)) {
       continue;
     }
 
@@ -301,6 +308,98 @@ function isTelegramLink(link: string): boolean {
   } catch {
     return false;
   }
+}
+
+function cleanExtractedUrl(link: string): string {
+  return link.trim().replace(/[)\],.;!?]+$/g, '');
+}
+
+function hasStreamContextKeywords(text: string): boolean {
+  const lower = text.toLowerCase();
+  return STREAM_CONTEXT_KEYWORDS.some((keyword) => lower.includes(keyword));
+}
+
+function isLikelyStreamLink(link: string, hasStreamContext: boolean): boolean {
+  const lower = link.toLowerCase();
+  return hasStreamContext || STREAM_URL_HINTS.some((hint) => lower.includes(hint));
+}
+
+function buildMatchSearchTerms(match: Awaited<ReturnType<typeof getAllMatches>>[number]): string[] {
+  return [
+    match.homeTeam.name.toLowerCase(),
+    match.homeTeam.shortName.toLowerCase(),
+    match.homeTeam.tla.toLowerCase(),
+    match.awayTeam.name.toLowerCase(),
+    match.awayTeam.shortName.toLowerCase(),
+    match.awayTeam.tla.toLowerCase(),
+    ...(TEAM_ALIASES[match.homeTeam.tla] || []),
+    ...(TEAM_ALIASES[match.awayTeam.tla] || []),
+  ].map(normalizeSearchText);
+}
+
+function findBestMatchForMessage(
+  messageText: string,
+  searchIndex: Array<{
+    matchId: string;
+    terms: string[];
+    group: string;
+    stage: string;
+  }>,
+  fuse: Fuse<{
+    matchId: string;
+    terms: string[];
+    group: string;
+    stage: string;
+  }>
+): { bestMatchId: string | null; bestScore: number } {
+  const normalizedMessage = normalizeSearchText(messageText);
+  let bestMatchId: string | null = null;
+  let bestScore = Infinity;
+
+  for (const candidate of searchIndex) {
+    const score = scoreMessageAgainstMatch(normalizedMessage, candidate.terms);
+    if (score < bestScore) {
+      bestScore = score;
+      bestMatchId = candidate.matchId;
+    }
+  }
+
+  if (bestMatchId && bestScore < 0.4) {
+    return { bestMatchId, bestScore };
+  }
+
+  const fused = fuse.search(normalizedMessage, { limit: 1 });
+  if (fused.length > 0) {
+    return {
+      bestMatchId: fused[0].item.matchId,
+      bestScore: fused[0].score ?? 1,
+    };
+  }
+
+  return { bestMatchId, bestScore };
+}
+
+function scoreMessageAgainstMatch(messageText: string, terms: string[]): number {
+  const uniqueTerms = [...new Set(terms)].filter((term) => term.length >= 3);
+  const matches = uniqueTerms.filter((term) => messageText.includes(term));
+
+  if (matches.length >= 2) {
+    return 0.1;
+  }
+
+  if (matches.length === 1) {
+    return 0.32;
+  }
+
+  return 1;
+}
+
+function normalizeSearchText(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function detectQuality(text: string): string {
