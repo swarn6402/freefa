@@ -1,5 +1,5 @@
 import { Match, StreamLink } from '@/types';
-import { enrichMatchWithApiFootballDetail, enrichMatchesWithApiFootballSchedule } from './apiFootballService';
+import { enrichMatchWithApiFootballDetail } from './apiFootballService';
 import { enrichMatchWithEspnEvents } from './espnService';
 import { generateFixtures, TEAMS } from './fixtures';
 import { enrichMatchesWithOfficialVenues } from './venueEnrichment';
@@ -64,14 +64,12 @@ export async function getAllMatches(): Promise<Match[]> {
         url,
         {
           headers: { 'X-Auth-Token': apiKey },
-          next: { revalidate: 60 },
         }
       );
 
       if (res.ok) {
         const data = await res.json();
-        const venueEnriched = await enrichMatchesWithOfficialVenues(mapFootballDataMatches(data.matches));
-        const mapped = await enrichMatchesWithApiFootballSchedule(venueEnriched);
+        const mapped = await enrichMatchesWithOfficialVenues(mapFootballDataMatches(data.matches));
         console.log('[matchService] football-data.org request succeeded:', res.status);
         console.log('[matchService] football-data.org matches returned:', mapped.length);
         matchCache = mapped;
@@ -123,14 +121,18 @@ export async function getUpcomingMatches(limit = 8): Promise<Match[]> {
     .slice(0, limit);
 }
 
-export async function getFinishedMatches(limit = 6): Promise<Match[]> {
+export async function getFinishedMatches(limit = 6, espnRevalidateSeconds = 60): Promise<Match[]> {
   const matches = await getAllMatches();
   const finishedMatches = matches
     .filter((m) => m.status === 'FINISHED')
     .sort((a, b) => new Date(b.utcDate).getTime() - new Date(a.utcDate).getTime())
     .slice(0, limit);
 
-  return Promise.all(finishedMatches.map((match) => enrichMatchWithEspnEvents(match)));
+  return Promise.all(
+    finishedMatches.map((match) =>
+      enrichMatchWithEspnEvents(match, { revalidateSeconds: espnRevalidateSeconds })
+    )
+  );
 }
 
 export async function getFeaturedMatch(): Promise<Match | null> {
