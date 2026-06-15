@@ -2,6 +2,7 @@ import { Match, MatchEvent } from '@/types';
 
 const ESPN_SCOREBOARD_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard';
 const SCOREBOARD_CACHE_TTL = 60 * 1000;
+const DEFAULT_ESPN_REVALIDATE_SECONDS = 60;
 
 interface EspnScoreboardResponse {
   events?: EspnEvent[];
@@ -62,13 +63,19 @@ interface EspnDetail {
 
 const scoreboardCache = new Map<string, { fetchedAt: number; events: EspnEvent[] }>();
 
-export async function enrichMatchWithEspnEvents(match: Match): Promise<Match> {
+export async function enrichMatchWithEspnEvents(
+  match: Match,
+  options?: { revalidateSeconds?: number }
+): Promise<Match> {
   if (match.status === 'SCHEDULED') {
     return match;
   }
 
   try {
-    const candidates = await getCandidateEspnEvents(match.utcDate);
+    const candidates = await getCandidateEspnEvents(
+      match.utcDate,
+      options?.revalidateSeconds ?? DEFAULT_ESPN_REVALIDATE_SECONDS
+    );
     const espnEvent = findMatchingEspnEvent(match, candidates);
     if (!espnEvent) {
       return match;
@@ -93,13 +100,15 @@ export async function enrichMatchWithEspnEvents(match: Match): Promise<Match> {
   }
 }
 
-async function getCandidateEspnEvents(utcDate: string): Promise<EspnEvent[]> {
+async function getCandidateEspnEvents(utcDate: string, revalidateSeconds: number): Promise<EspnEvent[]> {
   const dates = getEspnDateWindow(utcDate);
-  const eventLists = await Promise.all(dates.map((date) => getScoreboardEventsForDate(date)));
+  const eventLists = await Promise.all(
+    dates.map((date) => getScoreboardEventsForDate(date, revalidateSeconds))
+  );
   return eventLists.flat();
 }
 
-async function getScoreboardEventsForDate(date: string): Promise<EspnEvent[]> {
+async function getScoreboardEventsForDate(date: string, revalidateSeconds: number): Promise<EspnEvent[]> {
   const cached = scoreboardCache.get(date);
   const now = Date.now();
 
@@ -108,7 +117,7 @@ async function getScoreboardEventsForDate(date: string): Promise<EspnEvent[]> {
   }
 
   const response = await fetch(`${ESPN_SCOREBOARD_URL}?dates=${date}`, {
-    next: { revalidate: 60 },
+    next: { revalidate: revalidateSeconds },
   });
 
   if (!response.ok) {
