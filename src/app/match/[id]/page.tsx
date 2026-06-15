@@ -195,7 +195,7 @@ export default async function MatchDetailPage({
                                 {formatEventHeadline(event)}
                               </p>
                               <span className="flex-none font-mono text-xs text-zinc-400">
-                                {formatEventMinute(event.minute)}
+                                {formatEventMinute(event.minute, event.minuteLabel)}
                               </span>
                             </div>
 
@@ -287,7 +287,7 @@ function formatEventHeadline(event: MatchEvent): string {
     case 'GOAL':
       return `${player} scored`;
     case 'OWN_GOAL':
-      return `${player} own goal`;
+      return `Own goal by ${player}`;
     case 'PENALTY':
       return `${player} penalty`;
     case 'YELLOW_CARD':
@@ -330,7 +330,11 @@ function getEventTypeLabel(type: MatchEvent['type']): string {
   }
 }
 
-function formatEventMinute(minute: number): string {
+function formatEventMinute(minute: number, minuteLabel?: string): string {
+  if (minuteLabel) {
+    return minuteLabel;
+  }
+
   if (!Number.isFinite(minute) || minute <= 0) {
     return "0'";
   }
