@@ -110,7 +110,8 @@ export async function getMatchById(id: string): Promise<Match | null> {
 
 export async function getLiveMatches(): Promise<Match[]> {
   const matches = await getAllMatches();
-  return matches.filter((m) => m.status === 'LIVE' || m.status === 'HALF_TIME');
+  const liveMatches = matches.filter((m) => m.status === 'LIVE' || m.status === 'HALF_TIME');
+  return Promise.all(liveMatches.map((match) => enrichMatchWithEspnEvents(match)));
 }
 
 export async function getUpcomingMatches(limit = 8): Promise<Match[]> {
@@ -124,10 +125,12 @@ export async function getUpcomingMatches(limit = 8): Promise<Match[]> {
 
 export async function getFinishedMatches(limit = 6): Promise<Match[]> {
   const matches = await getAllMatches();
-  return matches
+  const finishedMatches = matches
     .filter((m) => m.status === 'FINISHED')
     .sort((a, b) => new Date(b.utcDate).getTime() - new Date(a.utcDate).getTime())
     .slice(0, limit);
+
+  return Promise.all(finishedMatches.map((match) => enrichMatchWithEspnEvents(match)));
 }
 
 export async function getFeaturedMatch(): Promise<Match | null> {
