@@ -1,0 +1,21 @@
+
+> wc2026@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.9 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.29.249:3000
+- Environments: .env.local
+✓ Ready in 6.8s
+Creating turbopack project { dir: 'C:\\Users\\swarn\\Downloads\\wc2026\\wc2026', testMode: true }
+
+[matchService] FOOTBALL_DATA_API_KEY detected: true
+[matchService] Requesting football-data.org matches: https://api.football-data.org/v4/competitions/WC/matches?season=2026
+[matchService] football-data.org request succeeded: 200
+[matchService] football-data.org matches returned: 104
+ GET /api/matches/537345 200 in 6.6s (next.js: 4.3s, application-code: 2.4s)
+[matchService] FOOTBALL_DATA_API_KEY detected: true
+[matchService] Requesting football-data.org matches: https://api.football-data.org/v4/competitions/WC/matches?season=2026
+[matchService] football-data.org request succeeded: 200
+[matchService] football-data.org matches returned: 104
+ GET /api/matches/537345 200 in 1206ms (next.js: 67ms, application-code: 1139ms)
