@@ -1,37 +1,29 @@
 import Image from 'next/image';
-import {
-  getFeaturedMatch,
-  getFinishedMatches,
-  getLiveMatches,
-  getMatchesWithStreams,
-  getUpcomingMatches,
-} from '@/lib/matchService';
-import { getGroupStandings } from '@/lib/standingsService';
+import { LiveMatchesFeed } from '@/components/LiveMatchesFeed';
 import { HeroMatch } from '@/components/match/HeroMatch';
 import { MatchSection } from '@/components/match/MatchSection';
 import { StandingsTable } from '@/components/match/StandingsTable';
+import { getFinishedMatches, getUpcomingMatches } from '@/lib/matchService';
+import { getGroupStandings } from '@/lib/standingsService';
 
-export const revalidate = 30;
+export const revalidate = 3600;
 
 export default async function HomePage() {
-  const [featured, liveMatches, upcomingMatches, finishedMatches, standings] = await Promise.all([
-    getFeaturedMatch(),
-    getLiveMatches(),
-    getUpcomingMatches(8),
-    getFinishedMatches(6),
+  const [upcomingMatches, finishedMatches, standings] = await Promise.all([
+    getUpcomingMatches(9),
+    getFinishedMatches(6, 3600),
     getGroupStandings(),
   ]);
 
-  const [featuredWithStreams, liveWithStreams, upcomingWithStreams, finishedWithStreams] =
-    await Promise.all([
-      featured
-        ? getMatchesWithStreams([featured]).then((matches) => matches[0] || null)
-        : Promise.resolve(null),
-      getMatchesWithStreams(liveMatches),
-      getMatchesWithStreams(upcomingMatches),
-      getMatchesWithStreams(finishedMatches),
-    ]);
-
+  const featuredMatch = upcomingMatches[0] ?? finishedMatches[0] ?? null;
+  const upcomingPreview =
+    featuredMatch && featuredMatch.id === upcomingMatches[0]?.id
+      ? upcomingMatches.slice(1, 9)
+      : upcomingMatches.slice(0, 8);
+  const finishedPreview =
+    featuredMatch?.status === 'FINISHED'
+      ? finishedMatches.filter((match) => match.id !== featuredMatch.id).slice(0, 6)
+      : finishedMatches;
   const homepageStandings = standings.slice(0, 4);
 
   return (
@@ -73,29 +65,21 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {featuredWithStreams && (
+        {featuredMatch && (
           <section className="relative z-10 -mt-12 pt-1 sm:-mt-16 md:-mt-28 md:pt-2">
             <p className="mb-3 px-1 text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-500 sm:px-2">
-              {liveWithStreams.length > 0 ? 'Live Match' : 'Next Match'}
+              {featuredMatch.status === 'FINISHED' ? 'Latest Result' : 'Next Match'}
             </p>
-            <HeroMatch match={featuredWithStreams} />
+            <HeroMatch match={featuredMatch} />
           </section>
         )}
 
-        {liveWithStreams.length > 0 && (
-          <MatchSection
-            title="Live"
-            icon="🔴"
-            matches={liveWithStreams}
-            cardVariant="home"
-            tone="home"
-          />
-        )}
+        <LiveMatchesFeed />
 
         <MatchSection
           title="Upcoming"
           icon="📅"
-          matches={upcomingWithStreams}
+          matches={upcomingPreview}
           emptyMessage="No upcoming matches scheduled yet."
           cardVariant="home"
           tone="home"
@@ -111,17 +95,17 @@ export default async function HomePage() {
             </a>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {homepageStandings.map((s) => (
-              <StandingsTable key={s.group} standing={s} />
+            {homepageStandings.map((standing) => (
+              <StandingsTable key={standing.group} standing={standing} />
             ))}
           </div>
         </section>
 
-        {finishedWithStreams.length > 0 && (
+        {finishedPreview.length > 0 && (
           <MatchSection
             title="Results"
             icon="✅"
-            matches={finishedWithStreams}
+            matches={finishedPreview}
             cardVariant="home"
             tone="home"
           />
