@@ -137,11 +137,7 @@ function addStreamLinkToMemory(link: StreamLink): boolean {
 }
 
 function revalidateStreamPaths(matchId: string): void {
-  revalidatePath('/');
   revalidatePath(`/match/${matchId}`);
-  revalidatePath('/api/matches');
-  revalidatePath(`/api/matches/${matchId}`);
-  revalidatePath('/api/streams');
 }
 
 function toStreamLinkRow(link: StreamLink): StreamLinkRow {
@@ -171,4 +167,3 @@ function fromStreamLinkRow(row: StreamLinkRow): StreamLink {
     verified: row.verified,
   };
 }
-
