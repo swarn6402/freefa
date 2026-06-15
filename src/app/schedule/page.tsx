@@ -2,7 +2,7 @@ import { Match } from '@/types';
 import { MatchCard } from '@/components/match/MatchCard';
 import { getAllMatches } from '@/lib/matchService';
 
-export const revalidate = 60;
+export const revalidate = 86400;
 
 export const metadata = {
   title: 'Schedule | FreeFA',
