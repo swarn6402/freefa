@@ -1,9 +1,18 @@
-import { NextResponse } from 'next/server';
-import { getAllMatches, getMatchesWithStreams } from '@/lib/matchService';
+import { NextRequest, NextResponse } from 'next/server';
+import { getAllMatches, getFinishedMatches, getMatchesWithStreams } from '@/lib/matchService';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const matches = await getAllMatches();
+    const status = req.nextUrl.searchParams.get('status');
+    const limitParam = req.nextUrl.searchParams.get('limit');
+    const parsedLimit = limitParam ? Number(limitParam) : undefined;
+    const limit = parsedLimit && Number.isFinite(parsedLimit) ? parsedLimit : undefined;
+
+    const matches =
+      status === 'FINISHED'
+        ? await getFinishedMatches(limit ?? 6, 60)
+        : await getAllMatches();
+
     const withStreams = await getMatchesWithStreams(matches);
     return NextResponse.json({ matches: withStreams });
   } catch (err) {

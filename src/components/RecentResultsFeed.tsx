@@ -19,7 +19,7 @@ export function RecentResultsFeed() {
 
     async function loadResults() {
       try {
-        const response = await fetch('/api/matches', { cache: 'no-store' });
+        const response = await fetch('/api/matches?status=FINISHED&limit=6', { cache: 'no-store' });
         if (!response.ok) {
           throw new Error(`Failed to load recent results: ${response.status}`);
         }
@@ -28,13 +28,7 @@ export function RecentResultsFeed() {
         if (cancelled) {
           return;
         }
-
-        const finishedMatches = (data.matches || [])
-          .filter((match) => match.status === 'FINISHED')
-          .sort((a, b) => new Date(b.utcDate).getTime() - new Date(a.utcDate).getTime())
-          .slice(0, 6);
-
-        setMatches(finishedMatches);
+        setMatches(data.matches || []);
       } catch (error) {
         console.error('[RecentResultsFeed] Failed to fetch results:', error);
       } finally {
