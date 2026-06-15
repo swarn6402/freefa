@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import { LiveMatchesFeed } from '@/components/LiveMatchesFeed';
+import { RecentResultsFeed } from '@/components/RecentResultsFeed';
 import { HeroMatch } from '@/components/match/HeroMatch';
 import { MatchSection } from '@/components/match/MatchSection';
 import { StandingsTable } from '@/components/match/StandingsTable';
@@ -11,7 +12,7 @@ export const revalidate = 3600;
 export default async function HomePage() {
   const [upcomingMatches, finishedMatches, standings] = await Promise.all([
     getUpcomingMatches(9),
-    getFinishedMatches(6, 3600),
+    getFinishedMatches(1, 3600),
     getGroupStandings(),
   ]);
 
@@ -20,10 +21,6 @@ export default async function HomePage() {
     featuredMatch && featuredMatch.id === upcomingMatches[0]?.id
       ? upcomingMatches.slice(1, 9)
       : upcomingMatches.slice(0, 8);
-  const finishedPreview =
-    featuredMatch?.status === 'FINISHED'
-      ? finishedMatches.filter((match) => match.id !== featuredMatch.id).slice(0, 6)
-      : finishedMatches;
   const homepageStandings = standings.slice(0, 4);
 
   return (
@@ -101,15 +98,7 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {finishedPreview.length > 0 && (
-          <MatchSection
-            title="Results"
-            icon="✅"
-            matches={finishedPreview}
-            cardVariant="home"
-            tone="home"
-          />
-        )}
+        <RecentResultsFeed />
       </div>
     </div>
   );
