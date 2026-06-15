@@ -26,6 +26,7 @@ export interface Score {
 
 export interface MatchEvent {
   minute: number;
+  minuteLabel?: string;
   type: 'GOAL' | 'OWN_GOAL' | 'PENALTY' | 'YELLOW_CARD' | 'RED_CARD' | 'SUBSTITUTION';
   team: 'HOME' | 'AWAY';
   playerName?: string;
