@@ -5,7 +5,7 @@ export const metadata = {
   title: 'Standings | FreeFA',
 };
 
-export const revalidate = 30;
+export const revalidate = 3600;
 
 export default async function StandingsPage() {
   const standings = await getGroupStandings();
