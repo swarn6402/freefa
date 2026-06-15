@@ -1,5 +1,6 @@
 import { Match, StreamLink } from '@/types';
 import { enrichMatchWithApiFootballDetail, enrichMatchesWithApiFootballSchedule } from './apiFootballService';
+import { enrichMatchWithEspnEvents } from './espnService';
 import { generateFixtures, TEAMS } from './fixtures';
 import { enrichMatchesWithOfficialVenues } from './venueEnrichment';
 import {
@@ -98,12 +99,13 @@ export async function getAllMatches(): Promise<Match[]> {
 
 export async function getMatchById(id: string): Promise<Match | null> {
   const matches = await getAllMatches();
-  const match = matches.find((m) => m.id === id) || null;
-  if (!match) {
+  const baseMatch = matches.find((m) => m.id === id) || null;
+  if (!baseMatch) {
     return null;
   }
 
-  return enrichMatchWithApiFootballDetail(match);
+  const apiFootballMatch = await enrichMatchWithApiFootballDetail(baseMatch);
+  return enrichMatchWithEspnEvents(apiFootballMatch);
 }
 
 export async function getLiveMatches(): Promise<Match[]> {
