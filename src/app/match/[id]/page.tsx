@@ -33,10 +33,10 @@ export default async function MatchDetailPage({
 
   return (
     <div className="min-h-screen bg-black pitch-bg">
-      <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-5xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
         <Link
           href="/"
-          className="mb-6 inline-flex items-center gap-1.5 text-sm text-zinc-500 transition-colors hover:text-white"
+          className="mb-4 inline-flex items-center gap-1.5 text-sm text-zinc-500 transition-colors hover:text-white sm:mb-6"
         >
           {'<- Back to matches'}
         </Link>
@@ -58,15 +58,15 @@ export default async function MatchDetailPage({
             )}
           />
 
-          <div className="px-6 py-8 md:px-10 md:py-10">
-            <div className="mb-6 flex items-center justify-between">
-              <div className="flex items-center gap-2">
+          <div className="px-4 py-5 sm:px-6 sm:py-6 md:px-10 md:py-10">
+            <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-2">
                 {isLive && <LiveBadge />}
-                <span className="text-xs font-bold uppercase tracking-widest text-zinc-500">
+                <span className="truncate text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-500 sm:text-xs sm:tracking-widest">
                   {formatMatchStage(match)}
                 </span>
               </div>
-              <div className="text-right">
+              <div className="text-left sm:text-right">
                 {isScheduled && <p className="text-xs text-zinc-500">{formatMatchDate(match.utcDate)}</p>}
                 {isFinished && (
                   <span className="text-xs font-bold tracking-widest text-zinc-500">FULL TIME</span>
@@ -80,53 +80,59 @@ export default async function MatchDetailPage({
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-6 md:gap-10">
-              <div className="flex flex-1 flex-col items-center gap-3">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:gap-6 md:gap-10">
+              <div className="flex flex-col items-center gap-3">
                 <FlagIcon
                   flag={match.homeTeam.flag}
                   teamName={match.homeTeam.name}
                   size={144}
-                  className="h-28 w-28 md:h-36 md:w-36"
+                  className="h-20 w-20 sm:h-24 sm:w-24 md:h-36 md:w-36"
                 />
                 <div className="text-center">
-                  <p className="text-xl font-black text-white md:text-3xl">{match.homeTeam.name}</p>
+                  <p className="text-lg font-black text-white sm:text-xl md:text-3xl">{match.homeTeam.name}</p>
                   <p className="mt-1 text-xs uppercase tracking-widest text-zinc-500">
                     {match.homeTeam.tla}
                   </p>
                 </div>
               </div>
 
-              <div className="flex min-w-[140px] flex-none flex-col items-center gap-3 md:min-w-[180px]">
+              <div className="order-first flex min-w-0 flex-col items-center gap-3 rounded-2xl border border-white/6 bg-white/[0.03] px-4 py-4 sm:order-none sm:min-w-[160px] md:min-w-[180px]">
                 {isScheduled ? (
                   <>
-                    <span className="text-5xl font-black text-wc-gold md:text-6xl">vs</span>
-                    <p className="text-lg font-bold text-white">{formatMatchTime(match.utcDate)}</p>
-                    <p className="font-mono text-2xl font-black text-wc-gold md:text-3xl">
+                    <span className="text-4xl font-black text-wc-gold sm:text-5xl md:text-6xl">vs</span>
+                    <p className="text-base font-bold text-white sm:text-lg">{formatMatchTime(match.utcDate)}</p>
+                    <p className="font-mono text-xl font-black text-wc-gold sm:text-2xl md:text-3xl">
                       <CountdownTimer utcDate={match.utcDate} />
                     </p>
                   </>
                 ) : (
-                  <div className="flex items-center gap-4">
-                    <span className="tabular-nums text-6xl font-black text-white md:text-8xl">
-                      {match.score.home ?? 0}
-                    </span>
-                    <span className="text-3xl text-zinc-600">-</span>
-                    <span className="tabular-nums text-6xl font-black text-white md:text-8xl">
-                      {match.score.away ?? 0}
-                    </span>
-                  </div>
+                  <>
+                    <div className="flex items-center gap-3 sm:gap-4">
+                      <span className="tabular-nums text-5xl font-black text-white sm:text-6xl md:text-8xl">
+                        {match.score.home ?? 0}
+                      </span>
+                      <span className="text-2xl text-zinc-600 sm:text-3xl">-</span>
+                      <span className="tabular-nums text-5xl font-black text-white sm:text-6xl md:text-8xl">
+                        {match.score.away ?? 0}
+                      </span>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-zinc-500">{formatVenueName(match.venue)}</p>
+                      <p className="mt-1 text-xs text-zinc-600">{formatMatchLocation(match)}</p>
+                    </div>
+                  </>
                 )}
               </div>
 
-              <div className="flex flex-1 flex-col items-center gap-3">
+              <div className="flex flex-col items-center gap-3">
                 <FlagIcon
                   flag={match.awayTeam.flag}
                   teamName={match.awayTeam.name}
                   size={144}
-                  className="h-28 w-28 md:h-36 md:w-36"
+                  className="h-20 w-20 sm:h-24 sm:w-24 md:h-36 md:w-36"
                 />
                 <div className="text-center">
-                  <p className="text-xl font-black text-white md:text-3xl">{match.awayTeam.name}</p>
+                  <p className="text-lg font-black text-white sm:text-xl md:text-3xl">{match.awayTeam.name}</p>
                   <p className="mt-1 text-xs uppercase tracking-widest text-zinc-500">
                     {match.awayTeam.tla}
                   </p>
@@ -144,7 +150,7 @@ export default async function MatchDetailPage({
               <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-white">
                 <span>i</span> Match Info
               </h3>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+              <dl className="grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
                 <dt className="text-zinc-500">Venue</dt>
                 <dd className="font-medium text-white">{formatVenueName(match.venue)}</dd>
 
@@ -191,7 +197,7 @@ export default async function MatchDetailPage({
 
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-3">
-                              <p className="truncate text-sm font-semibold text-white">
+                              <p className="min-w-0 text-sm font-semibold text-white sm:truncate">
                                 {formatEventHeadline(event)}
                               </p>
                               <span className="flex-none font-mono text-xs text-zinc-400">
@@ -199,8 +205,8 @@ export default async function MatchDetailPage({
                               </span>
                             </div>
 
-                            <div className="mt-1 flex items-center justify-between gap-3">
-                              <p className="truncate text-xs text-zinc-500">
+                            <div className="mt-1 flex items-start justify-between gap-3">
+                              <p className="min-w-0 text-xs leading-5 text-zinc-500 sm:truncate">
                                 {formatEventSecondary(event)}
                               </p>
                               <span
