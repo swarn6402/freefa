@@ -35,6 +35,9 @@ export function LiveMatchesFeed() {
         setMatches(liveMatches);
       } catch (error) {
         console.error('[LiveMatchesFeed] Failed to fetch live matches:', error);
+        if (!cancelled) {
+          setMatches([]);
+        }
       } finally {
         if (!cancelled) {
           setIsLoading(false);
