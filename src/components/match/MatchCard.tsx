@@ -11,6 +11,7 @@ import {
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
 import { FlagIcon } from '@/components/ui/FlagIcon';
 import { LiveBadge } from '@/components/ui/LiveBadge';
+import { StreamBadge } from '@/components/StreamBadge';
 import { ScoreDisplay } from './ScoreDisplay';
 
 interface MatchCardProps {
@@ -119,20 +120,18 @@ export function MatchCard({ match, variant = 'default' }: MatchCardProps) {
               )}
 
               {(isLive || isScheduled) && (
-                <span
-                  className={cn(
-                    'rounded px-2 py-0.5 text-[10px] font-bold',
-                    hasStreams
-                      ? 'bg-wc-gold/20 text-wc-gold'
-                      : isHomeVariant
-                        ? 'border border-white/8 bg-white/[0.06] text-zinc-500'
-                        : 'bg-zinc-800 text-zinc-600'
-                  )}
-                >
-                  {hasStreams
-                    ? `Watch ${match.streams!.length}`
-                    : 'Watch'}
-                </span>
+                isHomeVariant ? (
+                  <StreamBadge matchId={match.id} initialCount={match.streams?.length || 0} />
+                ) : (
+                  <span
+                    className={cn(
+                      'rounded px-2 py-0.5 text-[10px] font-bold',
+                      hasStreams ? 'bg-wc-gold/20 text-wc-gold' : 'bg-zinc-800 text-zinc-600'
+                    )}
+                  >
+                    {hasStreams ? `Watch ${match.streams!.length}` : 'Watch'}
+                  </span>
+                )
               )}
             </div>
           </div>
