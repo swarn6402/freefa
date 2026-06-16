@@ -17,7 +17,7 @@ jobs:
       - name: Trigger production Telegram scrape
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          TRIGGER_URL: https://freefa-sand.vercel.app/api/telegram
+          TRIGGER_URL: https://freefifa.vercel.app/api/telegram
         run: |
           if [ -z "$CRON_SECRET" ]; then
             echo "Missing GitHub Actions secret: CRON_SECRET"
