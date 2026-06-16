@@ -1,0 +1,33 @@
+name: Telegram Scrape
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: telegram-scrape
+  cancel-in-progress: false
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger production Telegram scrape
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          TRIGGER_URL: https://freeifa.vercel.app/api/telegram
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "Missing GitHub Actions secret: CRON_SECRET"
+            exit 1
+          fi
+
+          response=$(curl --silent --show-error --fail-with-body \
+            -X POST \
+            -H "x-cron-secret: $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            "$TRIGGER_URL")
+
+          echo "$response"
