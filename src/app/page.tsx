@@ -1,7 +1,7 @@
 import Image from 'next/image';
+import { FeaturedHeroFeed } from '@/components/FeaturedHeroFeed';
 import { LiveMatchesFeed } from '@/components/LiveMatchesFeed';
 import { RecentResultsFeed } from '@/components/RecentResultsFeed';
-import { HeroMatch } from '@/components/match/HeroMatch';
 import { MatchSection } from '@/components/match/MatchSection';
 import { StandingsTable } from '@/components/match/StandingsTable';
 import { getFinishedMatches, getUpcomingMatches } from '@/lib/matchService';
@@ -62,14 +62,7 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {featuredMatch && (
-          <section className="relative z-10 -mt-12 pt-1 sm:-mt-16 md:-mt-28 md:pt-2">
-            <p className="mb-3 px-1 text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-500 sm:px-2">
-              {featuredMatch.status === 'FINISHED' ? 'Latest Result' : 'Next Match'}
-            </p>
-            <HeroMatch match={featuredMatch} />
-          </section>
-        )}
+        <FeaturedHeroFeed initialMatch={featuredMatch} />
 
         <LiveMatchesFeed />
 

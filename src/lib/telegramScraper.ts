@@ -1,7 +1,7 @@
 import Fuse from 'fuse.js';
 import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
-import { StreamLink } from '@/types';
+import { MatchStatus, StreamLink } from '@/types';
 import { getAllMatches } from './matchService';
 import { addStreamLink } from './matchService';
 
@@ -67,8 +67,17 @@ interface TelegramChannelTarget {
   type: 'username' | 'channel ID';
 }
 
+interface MatchSearchCandidate {
+  matchId: string;
+  terms: string[];
+  group: string;
+  stage: string;
+  status: MatchStatus;
+  utcDate: string;
+}
+
 const TELEGRAM_MESSAGE_LIMIT = 200;
-const MATCH_WINDOW_HOURS = 36;
+const MATCH_WINDOW_HOURS = 6;
 const TELEGRAM_HOSTS = new Set(['t.me', 'www.t.me', 'telegram.me', 'www.telegram.me']);
 
 export async function scrapeTelegramChannels(): Promise<void> {
@@ -195,33 +204,37 @@ function parseTelegramChannelTarget(raw: string): TelegramChannelTarget {
 
 async function matchLinksToFixtures(messages: TelegramMessage[]): Promise<void> {
   const matches = await getAllMatches();
-  const now = new Date();
-
-  // Only consider nearby matches so stream links do not land on stale fixtures.
-  const relevantMatches = matches.filter((m) => {
-    const matchTime = new Date(m.utcDate);
-    const diffHours = Math.abs(matchTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-    return diffHours <= MATCH_WINDOW_HOURS;
-  });
-
-  const searchIndex = relevantMatches.map((match) => ({
-    matchId: match.id,
-    terms: buildMatchSearchTerms(match),
-    group: match.group?.toLowerCase() || '',
-    stage: match.stage.toLowerCase(),
-  }));
-
-  const fuse = new Fuse(searchIndex, {
-    keys: ['terms', 'group', 'stage'],
-    threshold: 0.4,
-    includeScore: true,
-  });
 
   for (const message of messages) {
     const { accepted: links, discardedTelegram } = extractCandidateLinks(message.text);
     if (links.length === 0) continue;
 
-    const { bestMatchId, bestScore } = findBestMatchForMessage(message.text, searchIndex, fuse);
+    const candidateMatches = getRelevantMatchesForMessage(matches, message.date);
+    if (candidateMatches.length === 0) {
+      continue;
+    }
+
+    const searchIndex: MatchSearchCandidate[] = candidateMatches.map((match) => ({
+      matchId: match.id,
+      terms: buildMatchSearchTerms(match),
+      group: match.group?.toLowerCase() || '',
+      stage: match.stage.toLowerCase(),
+      status: match.status,
+      utcDate: match.utcDate,
+    }));
+
+    const fuse = new Fuse(searchIndex, {
+      keys: ['terms', 'group', 'stage'],
+      threshold: 0.4,
+      includeScore: true,
+    });
+
+    const { bestMatchId, bestScore } = findBestMatchForMessage(
+      message.text,
+      message.date,
+      searchIndex,
+      fuse
+    );
 
     console.log('[Telegram] Extracted stream URLs from message:', links);
     if (discardedTelegram.length > 0) {
@@ -337,20 +350,24 @@ function buildMatchSearchTerms(match: Awaited<ReturnType<typeof getAllMatches>>[
   ].map(normalizeSearchText);
 }
 
+function getRelevantMatchesForMessage(
+  matches: Awaited<ReturnType<typeof getAllMatches>>,
+  messageTimestampSeconds: number
+) {
+  const messageTime = messageTimestampSeconds * 1000;
+
+  return matches.filter((match) => {
+    const matchTime = new Date(match.utcDate).getTime();
+    const diffHours = Math.abs(matchTime - messageTime) / (1000 * 60 * 60);
+    return diffHours <= MATCH_WINDOW_HOURS;
+  });
+}
+
 function findBestMatchForMessage(
   messageText: string,
-  searchIndex: Array<{
-    matchId: string;
-    terms: string[];
-    group: string;
-    stage: string;
-  }>,
-  fuse: Fuse<{
-    matchId: string;
-    terms: string[];
-    group: string;
-    stage: string;
-  }>
+  messageTimestampSeconds: number,
+  searchIndex: MatchSearchCandidate[],
+  fuse: Fuse<MatchSearchCandidate>
 ): { bestMatchId: string | null; bestScore: number } {
   const normalizedMessage = normalizeSearchText(messageText);
   let bestMatchId: string | null = null;
@@ -366,6 +383,29 @@ function findBestMatchForMessage(
 
   if (bestMatchId && bestScore < 0.4) {
     return { bestMatchId, bestScore };
+  }
+
+  const liveCandidates = searchIndex.filter(
+    (candidate) => candidate.status === 'LIVE' || candidate.status === 'HALF_TIME'
+  );
+  if (liveCandidates.length === 1) {
+    return { bestMatchId: liveCandidates[0].matchId, bestScore: 0.35 };
+  }
+
+  const messageTime = messageTimestampSeconds * 1000;
+  const nearestCandidate = [...searchIndex]
+    .sort(
+      (a, b) =>
+        Math.abs(new Date(a.utcDate).getTime() - messageTime) -
+        Math.abs(new Date(b.utcDate).getTime() - messageTime)
+    )[0];
+
+  if (nearestCandidate) {
+    const diffHours =
+      Math.abs(new Date(nearestCandidate.utcDate).getTime() - messageTime) / (1000 * 60 * 60);
+    if (diffHours <= 2) {
+      return { bestMatchId: nearestCandidate.matchId, bestScore: 0.38 };
+    }
   }
 
   const fused = fuse.search(normalizedMessage, { limit: 1 });

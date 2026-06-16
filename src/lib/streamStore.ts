@@ -47,7 +47,7 @@ export async function addStreamLink(link: StreamLink): Promise<boolean> {
     return addStreamLinkToMemory(link);
   }
 
-  revalidateStreamPaths(link.matchId);
+  safeRevalidateStreamPath(link.matchId);
   return true;
 }
 
@@ -132,12 +132,20 @@ function addStreamLinkToMemory(link: StreamLink): boolean {
   }
 
   FALLBACK_STREAM_STORE.set(link.matchId, [...existing, link]);
-  revalidateStreamPaths(link.matchId);
+  safeRevalidateStreamPath(link.matchId);
   return true;
 }
 
 function revalidateStreamPaths(matchId: string): void {
   revalidatePath(`/match/${matchId}`);
+}
+
+function safeRevalidateStreamPath(matchId: string): void {
+  try {
+    revalidateStreamPaths(matchId);
+  } catch (error) {
+    console.warn('[streamStore] Skipping revalidation outside request context:', error);
+  }
 }
 
 function toStreamLinkRow(link: StreamLink): StreamLinkRow {
