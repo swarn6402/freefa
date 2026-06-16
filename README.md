@@ -1,8 +1,8 @@
 # FreeFA
 
-FreeFA is a fan-built World Cup 2026 match hub built with Next.js 16. It combines official fixture data, computed standings, venue enrichment, live match/event overlays, and Telegram-driven stream discovery into a single production web app.
+FreeFA is a fan-built World Cup 2026 match hub built with Next.js 16. It combines official fixture data, computed standings, venue enrichment, live match/event overlays, and Telegram-driven stream [...]
 
-It was built to feel like a real product, not a static tournament microsite: fast homepage shell, live match promotion, match detail pages, persistent stream storage, and a lightweight automation flow that works on free-tier tooling.
+It was built to feel like a real product, not a static tournament microsite: fast homepage shell, live match promotion, match detail pages, persistent stream storage, and a lightweight automation f[...]
 
 ## What It Does
 
@@ -415,4 +415,6 @@ Any trademarks, tournament names, team marks, or third-party services referenced
 
 ## License
 
-No license has been added yet. Until a license file is included, treat the repository as view-only by default.
+This project is licensed under the [MIT License](./LICENSE).
+
+For detailed information about third-party services, dependencies, and attributions, see [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md).
