@@ -3,7 +3,7 @@ setlocal EnableExtensions
 
 set "ROOT_DIR=C:\Users\swarn\Downloads\wc2026\wc2026"
 set "ENV_FILE=%ROOT_DIR%\.env.local"
-set "API_URL=https://freefa-sand.vercel.app/api/telegram"
+set "API_URL=https://freefifa.vercel.app/api/telegram"
 set "CRON_SECRET="
 
 if not exist "%ENV_FILE%" (

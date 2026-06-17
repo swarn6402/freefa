@@ -35,8 +35,12 @@ export async function POST(req: NextRequest) {
     }
 
     console.log('[Telegram] Scrape window active:', scrapeWindow.reason);
-    await scrapeTelegramChannels();
-    return NextResponse.json({ success: true, message: 'Telegram channels scraped' });
+    const summary = await scrapeTelegramChannels();
+    return NextResponse.json({
+      success: true,
+      message: 'Telegram channels scraped',
+      summary,
+    });
   } catch (err) {
     console.error('[Telegram scrape error]', err);
     return NextResponse.json({ error: 'Scrape failed' }, { status: 500 });

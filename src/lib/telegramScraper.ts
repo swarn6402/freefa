@@ -76,25 +76,65 @@ interface MatchSearchCandidate {
   utcDate: string;
 }
 
+export interface TelegramScrapeSummary {
+  channelsLoaded: number;
+  channelErrors: number;
+  messagesFetched: number;
+  urlsExtracted: number;
+  telegramUrlsDiscarded: number;
+  streamsStored: number;
+  streamsSkipped: number;
+  skippedReason?: string;
+}
+
+interface MatchLinkResult {
+  streamsStored: number;
+  streamsSkipped: number;
+}
+
+interface MatchTargetResult {
+  matchIds: string[];
+  bestScore: number;
+  reason: string;
+}
+
 const TELEGRAM_MESSAGE_LIMIT = 200;
 const MATCH_WINDOW_HOURS = 6;
+const GENERIC_LINK_BEFORE_KICKOFF_HOURS = 0.75;
+const GENERIC_LINK_AFTER_KICKOFF_HOURS = 3.5;
 const TELEGRAM_HOSTS = new Set(['t.me', 'www.t.me', 'telegram.me', 'www.telegram.me']);
 
-export async function scrapeTelegramChannels(): Promise<void> {
+export async function scrapeTelegramChannels(): Promise<TelegramScrapeSummary> {
   const apiId = process.env.TELEGRAM_API_ID;
   const apiHash = process.env.TELEGRAM_API_HASH;
   const sessionString = process.env.TELEGRAM_SESSION_STRING || '';
   const channelList = process.env.TELEGRAM_CHANNELS || '';
 
+  const summary: TelegramScrapeSummary = {
+    channelsLoaded: 0,
+    channelErrors: 0,
+    messagesFetched: 0,
+    urlsExtracted: 0,
+    telegramUrlsDiscarded: 0,
+    streamsStored: 0,
+    streamsSkipped: 0,
+  };
+
   if (!apiId || !apiHash || !sessionString || !channelList) {
     console.log('[Telegram] Missing API credentials, session, or channels, skipping scrape');
-    return;
+    return {
+      ...summary,
+      skippedReason: 'missing Telegram credentials, session, or channels',
+    };
   }
 
   const parsedApiId = Number(apiId);
   if (!Number.isInteger(parsedApiId) || parsedApiId <= 0) {
     console.log('[Telegram] TELEGRAM_API_ID is invalid, skipping scrape');
-    return;
+    return {
+      ...summary,
+      skippedReason: 'invalid TELEGRAM_API_ID',
+    };
   }
 
   const channels = channelList
@@ -103,6 +143,7 @@ export async function scrapeTelegramChannels(): Promise<void> {
     .filter(Boolean)
     .map(parseTelegramChannelTarget);
   const allMessages: TelegramMessage[] = [];
+  summary.channelsLoaded = channels.length;
   const client = new TelegramClient(new StringSession(sessionString), parsedApiId, apiHash, {
     connectionRetries: 5,
   });
@@ -133,6 +174,9 @@ export async function scrapeTelegramChannels(): Promise<void> {
           (count, message) => count + extractCandidateLinks(message.text).discardedTelegram.length,
           0
         );
+        summary.messagesFetched += messages.length;
+        summary.urlsExtracted += extractedUrlCount;
+        summary.telegramUrlsDiscarded += discardedTelegramUrlCount;
         console.log(`[Telegram] Messages fetched from ${channel.raw}:`, messages.length);
         console.log(`[Telegram] URLs extracted from ${channel.raw}:`, extractedUrlCount);
         console.log(
@@ -141,11 +185,15 @@ export async function scrapeTelegramChannels(): Promise<void> {
         );
         allMessages.push(...messages);
       } catch (err) {
+        summary.channelErrors += 1;
         console.error(`[Telegram] Failed to fetch from ${channel.raw}:`, err);
       }
     }
 
-    await matchLinksToFixtures(allMessages);
+    const matchResult = await matchLinksToFixtures(allMessages);
+    summary.streamsStored = matchResult.streamsStored;
+    summary.streamsSkipped = matchResult.streamsSkipped;
+    return summary;
   } finally {
     await client.disconnect();
   }
@@ -202,8 +250,12 @@ function parseTelegramChannelTarget(raw: string): TelegramChannelTarget {
   };
 }
 
-async function matchLinksToFixtures(messages: TelegramMessage[]): Promise<void> {
+async function matchLinksToFixtures(messages: TelegramMessage[]): Promise<MatchLinkResult> {
   const matches = await getAllMatches();
+  const result: MatchLinkResult = {
+    streamsStored: 0,
+    streamsSkipped: 0,
+  };
 
   for (const message of messages) {
     const { accepted: links, discardedTelegram } = extractCandidateLinks(message.text);
@@ -229,7 +281,7 @@ async function matchLinksToFixtures(messages: TelegramMessage[]): Promise<void> 
       includeScore: true,
     });
 
-    const { bestMatchId, bestScore } = findBestMatchForMessage(
+    const targetMatches = findTargetMatchesForMessage(
       message.text,
       message.date,
       searchIndex,
@@ -241,42 +293,60 @@ async function matchLinksToFixtures(messages: TelegramMessage[]): Promise<void> 
       console.log('[Telegram] Discarded Telegram URLs from message:', discardedTelegram);
     }
     console.log(
-      '[Telegram] Match candidate:',
-      bestMatchId ? { matchId: bestMatchId, confidenceScore: bestScore } : null
+      '[Telegram] Match candidates:',
+      targetMatches.matchIds.length > 0
+        ? {
+            matchIds: targetMatches.matchIds,
+            confidenceScore: targetMatches.bestScore,
+            reason: targetMatches.reason,
+          }
+        : null
     );
 
-    if (bestMatchId && bestScore < 0.4) {
+    if (targetMatches.matchIds.length > 0 && targetMatches.bestScore < 0.4) {
       for (const link of links) {
-        const streamLink: StreamLink = {
-          id: `${message.channel}_${message.id}_${Date.now()}`,
-          matchId: bestMatchId,
-          url: link,
-          label: `Stream from @${message.channel}`,
-          source: message.channel,
-          addedAt: new Date(message.date * 1000).toISOString(),
-          verified: false,
-          quality: detectQuality(message.text),
-          language: detectLanguage(message.text),
-        };
-        const stored = await addStreamLink(streamLink);
-        console.log('[Telegram] Stream storage result:', {
-          url: link,
-          matchId: bestMatchId,
-          confidenceScore: bestScore,
-          stored,
-        });
+        for (const matchId of targetMatches.matchIds) {
+          const streamLink: StreamLink = {
+            id: `${message.channel}_${message.id}_${matchId}_${Date.now()}`,
+            matchId,
+            url: link,
+            label: `Stream from @${message.channel}`,
+            source: message.channel,
+            addedAt: new Date(message.date * 1000).toISOString(),
+            verified: false,
+            quality: detectQuality(message.text),
+            language: detectLanguage(message.text),
+          };
+          const stored = await addStreamLink(streamLink);
+          if (stored) {
+            result.streamsStored += 1;
+          } else {
+            result.streamsSkipped += 1;
+          }
+          console.log('[Telegram] Stream storage result:', {
+            url: link,
+            matchId,
+            confidenceScore: targetMatches.bestScore,
+            reason: targetMatches.reason,
+            stored,
+          });
+        }
       }
     } else {
       for (const link of links) {
+        result.streamsSkipped += 1;
         console.log('[Telegram] Stream storage result:', {
           url: link,
-          matchId: bestMatchId,
-          confidenceScore: bestScore,
+          matchId: targetMatches.matchIds[0] || null,
+          confidenceScore: targetMatches.bestScore,
+          reason: targetMatches.reason,
           stored: false,
         });
       }
     }
   }
+
+  return result;
 }
 
 function extractCandidateLinks(text: string): {
@@ -363,12 +433,12 @@ function getRelevantMatchesForMessage(
   });
 }
 
-function findBestMatchForMessage(
+function findTargetMatchesForMessage(
   messageText: string,
   messageTimestampSeconds: number,
   searchIndex: MatchSearchCandidate[],
   fuse: Fuse<MatchSearchCandidate>
-): { bestMatchId: string | null; bestScore: number } {
+): MatchTargetResult {
   const normalizedMessage = normalizeSearchText(messageText);
   let bestMatchId: string | null = null;
   let bestScore = Infinity;
@@ -382,14 +452,22 @@ function findBestMatchForMessage(
   }
 
   if (bestMatchId && bestScore < 0.4) {
-    return { bestMatchId, bestScore };
+    return {
+      matchIds: [bestMatchId],
+      bestScore,
+      reason: 'explicit team text match',
+    };
   }
 
-  const liveCandidates = searchIndex.filter(
-    (candidate) => candidate.status === 'LIVE' || candidate.status === 'HALF_TIME'
+  const genericLiveCandidates = searchIndex.filter((candidate) =>
+    isGenericLiveCandidate(candidate, messageTimestampSeconds)
   );
-  if (liveCandidates.length === 1) {
-    return { bestMatchId: liveCandidates[0].matchId, bestScore: 0.35 };
+  if (genericLiveCandidates.length > 0) {
+    return {
+      matchIds: [...new Set(genericLiveCandidates.map((candidate) => candidate.matchId))],
+      bestScore: 0.35,
+      reason: 'generic stream post during live/kickoff window',
+    };
   }
 
   const messageTime = messageTimestampSeconds * 1000;
@@ -404,19 +482,50 @@ function findBestMatchForMessage(
     const diffHours =
       Math.abs(new Date(nearestCandidate.utcDate).getTime() - messageTime) / (1000 * 60 * 60);
     if (diffHours <= 2) {
-      return { bestMatchId: nearestCandidate.matchId, bestScore: 0.38 };
+      return {
+        matchIds: [nearestCandidate.matchId],
+        bestScore: 0.38,
+        reason: 'nearest kickoff fallback',
+      };
     }
   }
 
   const fused = fuse.search(normalizedMessage, { limit: 1 });
   if (fused.length > 0) {
     return {
-      bestMatchId: fused[0].item.matchId,
+      matchIds: [fused[0].item.matchId],
       bestScore: fused[0].score ?? 1,
+      reason: 'fuzzy fallback',
     };
   }
 
-  return { bestMatchId, bestScore };
+  return {
+    matchIds: bestMatchId ? [bestMatchId] : [],
+    bestScore,
+    reason: 'no confident match',
+  };
+}
+
+function isGenericLiveCandidate(
+  candidate: MatchSearchCandidate,
+  messageTimestampSeconds: number
+): boolean {
+  if (candidate.status === 'LIVE' || candidate.status === 'HALF_TIME') {
+    return true;
+  }
+
+  if (candidate.status === 'FINISHED' || candidate.status === 'POSTPONED') {
+    return false;
+  }
+
+  const messageTime = messageTimestampSeconds * 1000;
+  const matchTime = new Date(candidate.utcDate).getTime();
+  const diffHours = (matchTime - messageTime) / (1000 * 60 * 60);
+
+  return (
+    diffHours >= -GENERIC_LINK_AFTER_KICKOFF_HOURS &&
+    diffHours <= GENERIC_LINK_BEFORE_KICKOFF_HOURS
+  );
 }
 
 function scoreMessageAgainstMatch(messageText: string, terms: string[]): number {
