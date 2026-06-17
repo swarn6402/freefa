@@ -1,9 +1,8 @@
 import Fuse from 'fuse.js';
 import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
-import { MatchStatus, StreamLink } from '@/types';
-import { getAllMatches } from './matchService';
-import { addStreamLink } from './matchService';
+import { Match, MatchStatus, StreamLink } from '@/types';
+import { addStreamLink, getAllMatches, getRecentStreamLinks, getStreamLinks } from './matchService';
 
 const GENERIC_URL_PATTERN = /https?:\/\/[^\s<>"]+/gi;
 const RTMP_URL_PATTERN = /rtmp?:\/\/[^\s<>"]+/gi;
@@ -83,6 +82,7 @@ export interface TelegramScrapeSummary {
   urlsExtracted: number;
   telegramUrlsDiscarded: number;
   streamsStored: number;
+  fallbackStreamsStored: number;
   streamsSkipped: number;
   skippedReason?: string;
 }
@@ -102,6 +102,8 @@ const TELEGRAM_MESSAGE_LIMIT = 200;
 const MATCH_WINDOW_HOURS = 6;
 const GENERIC_LINK_BEFORE_KICKOFF_HOURS = 0.75;
 const GENERIC_LINK_AFTER_KICKOFF_HOURS = 3.5;
+const RECENT_STREAM_FALLBACK_HOURS = 12;
+const RECENT_STREAM_FALLBACK_LIMIT = 8;
 const TELEGRAM_HOSTS = new Set(['t.me', 'www.t.me', 'telegram.me', 'www.telegram.me']);
 
 export async function scrapeTelegramChannels(): Promise<TelegramScrapeSummary> {
@@ -117,6 +119,7 @@ export async function scrapeTelegramChannels(): Promise<TelegramScrapeSummary> {
     urlsExtracted: 0,
     telegramUrlsDiscarded: 0,
     streamsStored: 0,
+    fallbackStreamsStored: 0,
     streamsSkipped: 0,
   };
 
@@ -193,6 +196,7 @@ export async function scrapeTelegramChannels(): Promise<TelegramScrapeSummary> {
     const matchResult = await matchLinksToFixtures(allMessages);
     summary.streamsStored = matchResult.streamsStored;
     summary.streamsSkipped = matchResult.streamsSkipped;
+    summary.fallbackStreamsStored = await backfillActiveMatchesWithRecentStreams();
     return summary;
   } finally {
     await client.disconnect();
@@ -526,6 +530,71 @@ function isGenericLiveCandidate(
     diffHours >= -GENERIC_LINK_AFTER_KICKOFF_HOURS &&
     diffHours <= GENERIC_LINK_BEFORE_KICKOFF_HOURS
   );
+}
+
+async function backfillActiveMatchesWithRecentStreams(): Promise<number> {
+  const matches = await getAllMatches();
+  const activeMatches = matches.filter(isActiveMatch);
+
+  if (activeMatches.length === 0) {
+    return 0;
+  }
+
+  const recentStreams = (await getRecentStreamLinks(30))
+    .filter((stream) => isRecentStream(stream))
+    .filter((stream) => !activeMatches.some((match) => match.id === stream.matchId))
+    .slice(0, RECENT_STREAM_FALLBACK_LIMIT);
+
+  if (recentStreams.length === 0) {
+    console.log('[Telegram] No recent stream links available for live-match fallback');
+    return 0;
+  }
+
+  let storedCount = 0;
+
+  for (const match of activeMatches) {
+    const existingStreams = await getStreamLinks(match.id);
+    if (existingStreams.length > 0) {
+      continue;
+    }
+
+    for (const stream of recentStreams) {
+      const stored = await addStreamLink({
+        ...stream,
+        id: `fallback_${match.id}_${Date.now()}_${storedCount}`,
+        matchId: match.id,
+        label: 'Live stream',
+        source: `recent:${stream.source}`,
+        addedAt: new Date().toISOString(),
+        verified: false,
+      });
+
+      if (stored) {
+        storedCount += 1;
+      }
+    }
+
+    console.log('[Telegram] Live-match fallback stream result:', {
+      matchId: match.id,
+      match: `${match.homeTeam.name} vs ${match.awayTeam.name}`,
+      attempted: recentStreams.length,
+    });
+  }
+
+  return storedCount;
+}
+
+function isActiveMatch(match: Match): boolean {
+  return match.status === 'LIVE' || match.status === 'HALF_TIME';
+}
+
+function isRecentStream(stream: StreamLink): boolean {
+  const addedAt = new Date(stream.addedAt).getTime();
+  if (Number.isNaN(addedAt)) {
+    return false;
+  }
+
+  return Date.now() - addedAt <= RECENT_STREAM_FALLBACK_HOURS * 60 * 60 * 1000;
 }
 
 function scoreMessageAgainstMatch(messageText: string, terms: string[]): number {

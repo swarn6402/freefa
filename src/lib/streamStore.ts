@@ -72,6 +72,30 @@ export async function getStreamLinks(matchId: string): Promise<StreamLink[]> {
   return result.data.map(fromStreamLinkRow);
 }
 
+export async function getRecentStreamLinks(limit = 30): Promise<StreamLink[]> {
+  const supabase = getSupabaseAdminClient();
+
+  if (!supabase) {
+    return [...FALLBACK_STREAM_STORE.values()]
+      .flat()
+      .sort((a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime())
+      .slice(0, limit);
+  }
+
+  const result = await supabase
+    .from(STREAM_LINKS_TABLE)
+    .select('*')
+    .order('added_at', { ascending: false })
+    .limit(limit);
+
+  if (result.error) {
+    console.error('[streamStore] Failed to load recent stream links from Supabase:', result.error);
+    return [...FALLBACK_STREAM_STORE.values()].flat().slice(0, limit);
+  }
+
+  return result.data.map(fromStreamLinkRow);
+}
+
 export async function getStreamsByMatchIds(matchIds: string[]): Promise<Map<string, StreamLink[]>> {
   const streamsByMatchId = new Map<string, StreamLink[]>();
 

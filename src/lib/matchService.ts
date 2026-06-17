@@ -7,6 +7,7 @@ import {
   addStreamLink as addPersistentStreamLink,
   getMatchWithStreams as getMatchWithPersistedStreams,
   getMatchesWithStreams as getMatchesWithPersistedStreams,
+  getRecentStreamLinks as getPersistedRecentStreamLinks,
   getStreamLinks as getPersistedStreamLinks,
 } from './streamStore';
 
@@ -155,6 +156,10 @@ export async function addStreamLink(link: StreamLink): Promise<boolean> {
 
 export async function getStreamLinks(matchId: string): Promise<StreamLink[]> {
   return getPersistedStreamLinks(matchId);
+}
+
+export async function getRecentStreamLinks(limit?: number): Promise<StreamLink[]> {
+  return getPersistedRecentStreamLinks(limit);
 }
 
 export async function getMatchWithStreams(match: Match): Promise<Match> {
