@@ -3,6 +3,7 @@ import { enrichMatchWithApiFootballDetail } from './apiFootballService';
 import { enrichMatchWithEspnEvents } from './espnService';
 import { generateFixtures, TEAMS } from './fixtures';
 import { enrichMatchesWithOfficialVenues } from './venueEnrichment';
+import officialMatchSnapshot from '@/data/worldCup2026MatchesSnapshot.json';
 import {
   addStreamLink as addPersistentStreamLink,
   getRecentStreamLinks as getPersistedRecentStreamLinks,
@@ -100,15 +101,20 @@ export async function getAllMatches(): Promise<Match[]> {
   return getFallbackMatches('football-data.org request did not return matches');
 }
 
-function getFallbackMatches(reason: string): Match[] {
+async function getFallbackMatches(reason: string): Promise<Match[]> {
   if (matchCache) {
     console.warn(`[matchService] ${reason}; using last good match cache`);
     return matchCache;
   }
 
   if (IS_PRODUCTION) {
-    console.warn(`[matchService] ${reason}; no cached official data available in production`);
-    return [];
+    console.warn(`[matchService] ${reason}; using bundled official match snapshot`);
+    const snapshotMatches = await enrichMatchesWithOfficialVenues(
+      mapFootballDataMatches(officialMatchSnapshot.matches)
+    );
+    matchCache = snapshotMatches;
+    lastFetchTime = Date.now();
+    return snapshotMatches;
   }
 
   // Local development fallback only. Never use generated fixtures in production.
