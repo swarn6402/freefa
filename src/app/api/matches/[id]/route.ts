@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getMatchById, getMatchWithStreams } from '@/lib/matchService';
+import { MatchDataUnavailableError, getMatchById, getMatchWithStreams } from '@/lib/matchService';
 
 export async function GET(
   _req: Request,
@@ -13,6 +13,10 @@ export async function GET(
     }
     return NextResponse.json({ match: await getMatchWithStreams(match) });
   } catch (err) {
+    if (err instanceof MatchDataUnavailableError) {
+      return NextResponse.json({ error: 'Match data temporarily unavailable' }, { status: 503 });
+    }
+
     console.error(err);
     return NextResponse.json({ error: 'Failed to fetch match' }, { status: 500 });
   }
