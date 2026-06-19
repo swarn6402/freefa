@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { MatchEvent } from '@/types';
-import { getMatchById, getMatchWithStreams } from '@/lib/matchService';
+import { MatchDataUnavailableError, getMatchById, getMatchWithStreams } from '@/lib/matchService';
 import { StreamPanel } from '@/components/stream/StreamPanel';
 import { LiveBadge } from '@/components/ui/LiveBadge';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
@@ -16,7 +16,7 @@ import {
   getMatchMinuteDisplay,
 } from '@/lib/utils';
 
-export const revalidate = 15;
+export const dynamic = 'force-dynamic';
 
 export default async function MatchDetailPage({
   params,
@@ -24,7 +24,18 @@ export default async function MatchDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const rawMatch = await getMatchById(id);
+  let rawMatch;
+
+  try {
+    rawMatch = await getMatchById(id);
+  } catch (error) {
+    if (error instanceof MatchDataUnavailableError) {
+      return <MatchDataRefreshing />;
+    }
+
+    throw error;
+  }
+
   if (!rawMatch) notFound();
 
   const match = await getMatchWithStreams(rawMatch);
@@ -263,6 +274,29 @@ export default async function MatchDetailPage({
               </div>
             )}
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MatchDataRefreshing() {
+  return (
+    <div className="min-h-screen bg-black pitch-bg">
+      <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+        <Link
+          href="/"
+          className="mb-6 inline-flex items-center gap-1.5 text-sm text-zinc-500 transition-colors hover:text-white"
+        >
+          {'<- Back to matches'}
+        </Link>
+
+        <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/50 p-6 text-center sm:p-8">
+          <p className="text-xs font-bold uppercase tracking-[0.22em] text-wc-gold">Refreshing</p>
+          <h1 className="mt-3 text-2xl font-black text-white">Match data is updating</h1>
+          <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-zinc-500">
+            Official match data is temporarily unavailable. Refresh in a moment and the match page should load normally.
+          </p>
         </div>
       </div>
     </div>
