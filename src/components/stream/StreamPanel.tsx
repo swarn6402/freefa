@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { StreamLink } from '@/types';
-import { cn } from '@/lib/utils';
+import { StreamLink } from "@/types";
+import { cn } from "@/lib/utils";
 
 interface StreamPanelProps {
   streams: StreamLink[];
@@ -18,14 +18,14 @@ export function StreamPanel({ streams, matchId }: StreamPanelProps) {
           <span>📡</span> Watch Live
         </h3>
         <p className="text-sm text-zinc-500 mt-3">
-          Links appear here once a matching stream is found.
-          Check back closer to kick-off.
+          Links appear here once a matching stream is found. Check back closer
+          to kick-off.
         </p>
         <div className="mt-4 p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50">
           <p className="text-xs text-zinc-400 font-medium mb-1">Source</p>
           <p className="text-xs text-zinc-500 leading-relaxed">
-            Configured Telegram channels are monitored automatically.
-            Matching links appear here as they are found.
+            Configured Telegram channels are monitored automatically. Matching
+            links appear here as they are found.
           </p>
         </div>
       </div>
@@ -39,9 +39,14 @@ export function StreamPanel({ streams, matchId }: StreamPanelProps) {
           <span>📡</span> Watch Live
         </h3>
         <span className="text-xs text-wc-gold font-bold bg-wc-gold/20 px-2 py-0.5 rounded">
-          {streams.length} stream{streams.length > 1 ? 's' : ''} available
+          {streams.length} stream{streams.length > 1 ? "s" : ""} available
         </span>
       </div>
+
+      <p className="border-b border-zinc-800/60 px-4 py-2 text-xs text-zinc-500">
+        Some streams may fail by region or provider. Try another source or VPN
+        for hassle-free streaming.
+      </p>
 
       <div className="divide-y divide-zinc-800/60">
         {streams.map((stream, idx) => (
@@ -51,8 +56,8 @@ export function StreamPanel({ streams, matchId }: StreamPanelProps) {
 
       <div className="px-4 py-2 bg-zinc-900 border-t border-zinc-800">
         <p className="text-[10px] text-zinc-600">
-          Links are sourced from Telegram. Quality and availability may vary.
-          We do not host content.
+          Links are sourced from Telegram. Quality and availability may vary. We
+          do not host content.
         </p>
       </div>
     </div>
@@ -60,13 +65,14 @@ export function StreamPanel({ streams, matchId }: StreamPanelProps) {
 }
 
 function StreamRow({ stream, index }: { stream: StreamLink; index: number }) {
-  const qualityColor = {
-    '4K': 'text-purple-400 bg-purple-950/50',
-    '1080p': 'text-blue-400 bg-blue-950/50',
-    '720p': 'text-green-400 bg-green-950/50',
-    '480p': 'text-yellow-400 bg-yellow-950/50',
-    HD: 'text-green-400 bg-green-950/50',
-  }[stream.quality || 'HD'] || 'text-zinc-400 bg-zinc-800';
+  const qualityColor =
+    {
+      "4K": "text-purple-400 bg-purple-950/50",
+      "1080p": "text-blue-400 bg-blue-950/50",
+      "720p": "text-green-400 bg-green-950/50",
+      "480p": "text-yellow-400 bg-yellow-950/50",
+      HD: "text-green-400 bg-green-950/50",
+    }[stream.quality || "HD"] || "text-zinc-400 bg-zinc-800";
 
   return (
     <a
@@ -75,7 +81,9 @@ function StreamRow({ stream, index }: { stream: StreamLink; index: number }) {
       rel="noopener noreferrer"
       className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-800/50 transition-colors group"
     >
-      <span className="text-xs text-zinc-600 font-mono w-5 flex-none text-center">{index}</span>
+      <span className="text-xs text-zinc-600 font-mono w-5 flex-none text-center">
+        {index}
+      </span>
 
       <div className="flex-1 min-w-0">
         <p className="text-sm text-white font-medium group-hover:text-wc-gold transition-colors truncate">
@@ -84,12 +92,19 @@ function StreamRow({ stream, index }: { stream: StreamLink; index: number }) {
       </div>
 
       {stream.quality && (
-        <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded flex-none', qualityColor)}>
+        <span
+          className={cn(
+            "text-[10px] font-bold px-1.5 py-0.5 rounded flex-none",
+            qualityColor,
+          )}
+        >
           {stream.quality}
         </span>
       )}
 
-      <span className="text-zinc-600 group-hover:text-wc-gold transition-colors flex-none">→</span>
+      <span className="text-zinc-600 group-hover:text-wc-gold transition-colors flex-none">
+        →
+      </span>
     </a>
   );
 }
