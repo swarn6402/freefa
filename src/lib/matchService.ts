@@ -17,6 +17,13 @@ const CACHE_TTL = 60 * 1000; // 60 seconds
 const FINISHED_STREAM_VISIBLE_MS = 27 * 60 * 60 * 1000;
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
+export class MatchDataUnavailableError extends Error {
+  constructor(matchId?: string) {
+    super(matchId ? `Match data temporarily unavailable for ${matchId}` : 'Match data temporarily unavailable');
+    this.name = 'MatchDataUnavailableError';
+  }
+}
+
 const FLAG_BY_TLA: Record<string, string> = {
   ...Object.fromEntries(Object.values(TEAMS).map((team) => [team.tla, team.flag])),
   ALG: '🇩🇿',
@@ -116,6 +123,10 @@ export async function getMatchById(id: string): Promise<Match | null> {
   const matches = await getAllMatches();
   const baseMatch = matches.find((m) => m.id === id) || null;
   if (!baseMatch) {
+    if (IS_PRODUCTION && matches.length === 0) {
+      throw new MatchDataUnavailableError(id);
+    }
+
     return null;
   }
 
