@@ -211,7 +211,7 @@ function mapFootballDataMatches(raw: any[]): Match[] {
       home: m.score?.fullTime?.home ?? null,
       away: m.score?.fullTime?.away ?? null,
     },
-    minute: m.minute,
+    minute: m.minute ?? estimateLiveMinute(mapStatus(m.status), m.utcDate),
     referee: m.referees?.find((ref: { type?: string }) => ref.type === 'REFEREE')?.name,
   }));
 }
@@ -226,4 +226,30 @@ function mapStatus(raw: string): Match['status'] {
     POSTPONED: 'POSTPONED',
   };
   return map[raw] || 'SCHEDULED';
+}
+
+function estimateLiveMinute(status: Match['status'], utcDate?: string): number | undefined {
+  if (status !== 'LIVE' || !utcDate) {
+    return undefined;
+  }
+
+  const kickoff = new Date(utcDate).getTime();
+  if (Number.isNaN(kickoff)) {
+    return undefined;
+  }
+
+  const elapsedMinutes = Math.floor((Date.now() - kickoff) / (1000 * 60));
+  if (elapsedMinutes < 0) {
+    return undefined;
+  }
+
+  if (elapsedMinutes <= 45) {
+    return Math.max(1, elapsedMinutes);
+  }
+
+  if (elapsedMinutes <= 60) {
+    return 45;
+  }
+
+  return Math.min(90, elapsedMinutes - 15);
 }

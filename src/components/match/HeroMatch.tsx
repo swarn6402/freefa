@@ -1,6 +1,13 @@
 import Link from 'next/link';
 import { Match } from '@/types';
-import { cn, formatMatchDate, formatMatchStage, formatMatchTime, formatVenueName } from '@/lib/utils';
+import {
+  cn,
+  formatMatchDate,
+  formatMatchStage,
+  formatMatchTime,
+  formatVenueName,
+  getMatchMinuteDisplay,
+} from '@/lib/utils';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
 import { FlagIcon } from '@/components/ui/FlagIcon';
 import { LiveBadge } from '@/components/ui/LiveBadge';
@@ -14,6 +21,7 @@ export function HeroMatch({ match }: HeroMatchProps) {
   const isScheduled = match.status === 'SCHEDULED';
   const isFinished = match.status === 'FINISHED';
   const hasStreams = (match.streams?.length || 0) > 0;
+  const minuteDisplay = getMatchMinuteDisplay(match);
 
   return (
     <div className="relative w-full overflow-hidden rounded-2xl border border-zinc-800/80 md:rounded-[28px]">
@@ -51,8 +59,8 @@ export function HeroMatch({ match }: HeroMatchProps) {
             </span>
           </div>
           <div className="shrink-0 text-right">
-            {isLive && match.minute && (
-              <span className="text-sm font-bold text-red-400">{match.minute}&apos;</span>
+            {isLive && minuteDisplay && (
+              <span className="text-sm font-bold text-red-400">{minuteDisplay}</span>
             )}
             {isFinished && (
               <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-500">

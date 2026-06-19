@@ -11,6 +11,7 @@ export function ScoreDisplay({ match, size = 'md' }: ScoreDisplayProps) {
   const isLive = match.status === 'LIVE' || match.status === 'HALF_TIME';
   const isFinished = match.status === 'FINISHED';
   const isScheduled = match.status === 'SCHEDULED';
+  const minuteDisplay = getMatchMinuteDisplay(match);
 
   const scoreClasses = cn(
     'font-display font-black tabular-nums tracking-tight',
@@ -49,8 +50,8 @@ export function ScoreDisplay({ match, size = 'md' }: ScoreDisplayProps) {
         {isFinished && (
           <span className="text-[10px] font-bold text-zinc-500 tracking-widest">FULL TIME</span>
         )}
-        {isLive && match.minute && (
-          <span className="text-[10px] text-red-400 font-mono">{match.minute}&apos;</span>
+        {isLive && minuteDisplay && minuteDisplay !== 'HT' && (
+          <span className="text-[10px] text-red-400 font-mono">{minuteDisplay}</span>
         )}
       </div>
     </div>

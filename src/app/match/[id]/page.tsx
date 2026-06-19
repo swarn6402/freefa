@@ -13,6 +13,7 @@ import {
   formatMatchStage,
   formatMatchTime,
   formatVenueName,
+  getMatchMinuteDisplay,
 } from '@/lib/utils';
 
 export const revalidate = 15;
@@ -30,6 +31,7 @@ export default async function MatchDetailPage({
   const isLive = match.status === 'LIVE' || match.status === 'HALF_TIME';
   const isScheduled = match.status === 'SCHEDULED';
   const isFinished = match.status === 'FINISHED';
+  const minuteDisplay = getMatchMinuteDisplay(match);
 
   return (
     <div className="min-h-screen bg-black pitch-bg">
@@ -71,8 +73,8 @@ export default async function MatchDetailPage({
                 {isFinished && (
                   <span className="text-xs font-bold tracking-widest text-zinc-500">FULL TIME</span>
                 )}
-                {isLive && match.minute && (
-                  <span className="text-sm font-bold text-red-400">{match.minute}&apos;</span>
+                {isLive && minuteDisplay && minuteDisplay !== 'HT' && (
+                  <span className="text-sm font-bold text-red-400">{minuteDisplay}</span>
                 )}
                 {match.status === 'HALF_TIME' && (
                   <span className="text-xs font-bold tracking-widest text-orange-400">HALF TIME</span>
