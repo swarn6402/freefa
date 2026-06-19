@@ -292,7 +292,7 @@ Workflow file:
 
 Behavior:
 
-- runs every 15 minutes
+- runs every 5 minutes
 - can also be launched manually with `workflow_dispatch`
 - calls the production `/api/telegram` endpoint with `x-cron-secret`
 
@@ -394,6 +394,7 @@ npm run telegram:session
 - Stream revalidation is scoped to the affected match page instead of broad site-wide invalidation.
 - Live homepage sections use client-side fetching to reduce unnecessary ISR churn.
 - The scraper intentionally ignores Telegram-native links and keeps only external stream targets.
+- Stream links for finished matches are hidden from the public app after roughly 24 hours.
 
 ## Contributing
 
