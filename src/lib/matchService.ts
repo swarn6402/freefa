@@ -15,6 +15,7 @@ let matchCache: Match[] | null = null;
 let lastFetchTime = 0;
 const CACHE_TTL = 60 * 1000; // 60 seconds
 const FINISHED_STREAM_VISIBLE_MS = 27 * 60 * 60 * 1000;
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 const FLAG_BY_TLA: Record<string, string> = {
   ...Object.fromEntries(Object.values(TEAMS).map((team) => [team.tla, team.flag])),
@@ -79,20 +80,35 @@ export async function getAllMatches(): Promise<Match[]> {
       }
 
       console.warn('[matchService] football-data.org request failed:', res.status, res.statusText);
-      console.log('[matchService] Using fallback generated fixtures');
+      return getFallbackMatches('football-data.org request failed');
     } else {
       console.log('[matchService] No football-data.org API key found');
-      console.log('[matchService] Using fallback generated fixtures');
+      return getFallbackMatches('missing FOOTBALL_DATA_API_KEY');
     }
   } catch (error) {
     console.error('[matchService] football-data.org request threw an error:', error);
-    console.log('[matchService] Using fallback generated fixtures');
+    return getFallbackMatches('football-data.org request threw an error');
   }
 
-  // Fall back to generated fixtures
+  return getFallbackMatches('football-data.org request did not return matches');
+}
+
+function getFallbackMatches(reason: string): Match[] {
+  if (matchCache) {
+    console.warn(`[matchService] ${reason}; using last good match cache`);
+    return matchCache;
+  }
+
+  if (IS_PRODUCTION) {
+    console.warn(`[matchService] ${reason}; no cached official data available in production`);
+    return [];
+  }
+
+  // Local development fallback only. Never use generated fixtures in production.
+  console.log(`[matchService] ${reason}; using local generated fixtures`);
   const fixtures = generateFixtures();
   matchCache = fixtures;
-  lastFetchTime = now;
+  lastFetchTime = Date.now();
   return fixtures;
 }
 
