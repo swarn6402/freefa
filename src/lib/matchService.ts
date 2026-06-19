@@ -5,16 +5,16 @@ import { generateFixtures, TEAMS } from './fixtures';
 import { enrichMatchesWithOfficialVenues } from './venueEnrichment';
 import {
   addStreamLink as addPersistentStreamLink,
-  getMatchWithStreams as getMatchWithPersistedStreams,
-  getMatchesWithStreams as getMatchesWithPersistedStreams,
   getRecentStreamLinks as getPersistedRecentStreamLinks,
   getStreamLinks as getPersistedStreamLinks,
+  getStreamsByMatchIds as getPersistedStreamsByMatchIds,
 } from './streamStore';
 
 // In-memory cache
 let matchCache: Match[] | null = null;
 let lastFetchTime = 0;
 const CACHE_TTL = 60 * 1000; // 60 seconds
+const FINISHED_STREAM_VISIBLE_MS = 27 * 60 * 60 * 1000;
 
 const FLAG_BY_TLA: Record<string, string> = {
   ...Object.fromEntries(Object.values(TEAMS).map((team) => [team.tla, team.flag])),
@@ -155,7 +155,15 @@ export async function addStreamLink(link: StreamLink): Promise<boolean> {
 }
 
 export async function getStreamLinks(matchId: string): Promise<StreamLink[]> {
-  return getPersistedStreamLinks(matchId);
+  const streams = await getPersistedStreamLinks(matchId);
+  const matches = await getAllMatches();
+  const match = matches.find((m) => m.id === matchId);
+
+  if (!match) {
+    return streams;
+  }
+
+  return filterVisibleStreamLinks(match, streams);
 }
 
 export async function getRecentStreamLinks(limit?: number): Promise<StreamLink[]> {
@@ -163,11 +171,40 @@ export async function getRecentStreamLinks(limit?: number): Promise<StreamLink[]
 }
 
 export async function getMatchWithStreams(match: Match): Promise<Match> {
-  return getMatchWithPersistedStreams(match);
+  return {
+    ...match,
+    streams: filterVisibleStreamLinks(match, await getPersistedStreamLinks(match.id)),
+  };
 }
 
 export async function getMatchesWithStreams(matches: Match[]): Promise<Match[]> {
-  return getMatchesWithPersistedStreams(matches);
+  const streamsByMatchId = await getPersistedStreamsByMatchIds(matches.map((match) => match.id));
+
+  return matches.map((match) => ({
+    ...match,
+    streams: filterVisibleStreamLinks(match, streamsByMatchId.get(match.id) || []),
+  }));
+}
+
+function filterVisibleStreamLinks(match: Match, streams: StreamLink[]): StreamLink[] {
+  if (streams.length === 0 || shouldShowStreamLinks(match)) {
+    return streams;
+  }
+
+  return [];
+}
+
+function shouldShowStreamLinks(match: Match): boolean {
+  if (match.status !== 'FINISHED') {
+    return true;
+  }
+
+  const kickoff = new Date(match.utcDate).getTime();
+  if (Number.isNaN(kickoff)) {
+    return false;
+  }
+
+  return Date.now() - kickoff <= FINISHED_STREAM_VISIBLE_MS;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
