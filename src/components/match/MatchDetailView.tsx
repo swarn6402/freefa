@@ -6,12 +6,12 @@ import { StreamPanel } from '@/components/stream/StreamPanel';
 import { LiveBadge } from '@/components/ui/LiveBadge';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
 import { FlagIcon } from '@/components/ui/FlagIcon';
+import { LocalMatchDate } from '@/components/ui/LocalMatchDate';
+import { LocalMatchTime } from '@/components/ui/LocalMatchTime';
 import {
   cn,
-  formatMatchDate,
   formatMatchLocation,
   formatMatchStage,
-  formatMatchTime,
   formatVenueName,
   getMatchMinuteDisplay,
 } from '@/lib/utils';
@@ -62,7 +62,12 @@ export function MatchDetailView({ match }: MatchDetailViewProps) {
                 </span>
               </div>
               <div className="text-left sm:text-right">
-                {isScheduled && <p className="text-xs text-zinc-500">{formatMatchDate(match.utcDate)}</p>}
+                {isScheduled && (
+                  <LocalMatchDate
+                    utcDate={match.utcDate}
+                    className="text-xs text-zinc-500"
+                  />
+                )}
                 {isFinished && (
                   <span className="text-xs font-bold tracking-widest text-zinc-500">FULL TIME</span>
                 )}
@@ -95,7 +100,10 @@ export function MatchDetailView({ match }: MatchDetailViewProps) {
                 {isScheduled ? (
                   <>
                     <span className="text-4xl font-black text-wc-gold sm:text-5xl md:text-6xl">vs</span>
-                    <p className="text-base font-bold text-white sm:text-lg">{formatMatchTime(match.utcDate)}</p>
+                    <LocalMatchTime
+                      utcDate={match.utcDate}
+                      className="text-base font-bold text-white sm:text-lg"
+                    />
                     <p className="font-mono text-xl font-black text-wc-gold sm:text-2xl md:text-3xl">
                       <CountdownTimer utcDate={match.utcDate} />
                     </p>
@@ -158,7 +166,8 @@ export function MatchDetailView({ match }: MatchDetailViewProps) {
 
                 <dt className="text-zinc-500">Kick-off</dt>
                 <dd className="font-medium text-white">
-                  {formatMatchDate(match.utcDate)} - {formatMatchTime(match.utcDate)}
+                  <LocalMatchDate utcDate={match.utcDate} /> -{' '}
+                  <LocalMatchTime utcDate={match.utcDate} />
                 </dd>
 
                 <dt className="text-zinc-500">Stage</dt>
