@@ -139,7 +139,11 @@ export function MatchDetailView({ match }: MatchDetailViewProps) {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="space-y-4 lg:col-span-2">
-            <StreamPanel streams={match.streams || []} matchId={match.id} />
+            <StreamPanel
+              streams={match.streams || []}
+              matchId={match.id}
+              status={match.status}
+            />
 
             <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/50 p-4">
               <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-white">
