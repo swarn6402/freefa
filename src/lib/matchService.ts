@@ -1,5 +1,5 @@
 import { Match, StreamLink } from '@/types';
-import { enrichMatchWithApiFootballDetail } from './apiFootballService';
+import { enrichMatchWithApiFootballDetail, enrichMatchesWithApiFootballSchedule } from './apiFootballService';
 import { enrichMatchWithEspnEvents } from './espnService';
 import { generateFixtures, TEAMS } from './fixtures';
 import { enrichMatchesWithOfficialVenues } from './venueEnrichment';
@@ -79,7 +79,9 @@ export async function getAllMatches(): Promise<Match[]> {
 
       if (res.ok) {
         const data = await res.json();
-        const mapped = await enrichMatchesWithOfficialVenues(mapFootballDataMatches(data.matches));
+        const mapped = await enrichMatchesWithApiFootballSchedule(
+          await enrichMatchesWithOfficialVenues(mapFootballDataMatches(data.matches))
+        );
         console.log('[matchService] football-data.org request succeeded:', res.status);
         console.log('[matchService] football-data.org matches returned:', mapped.length);
         matchCache = mapped;
@@ -109,8 +111,10 @@ async function getFallbackMatches(reason: string): Promise<Match[]> {
 
   if (IS_PRODUCTION) {
     console.warn(`[matchService] ${reason}; using bundled official match snapshot`);
-    const snapshotMatches = await enrichMatchesWithOfficialVenues(
-      mapFootballDataMatches(officialMatchSnapshot.matches)
+    const snapshotMatches = await enrichMatchesWithApiFootballSchedule(
+      await enrichMatchesWithOfficialVenues(
+        mapFootballDataMatches(officialMatchSnapshot.matches)
+      )
     );
     matchCache = snapshotMatches;
     lastFetchTime = Date.now();
