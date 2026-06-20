@@ -3,14 +3,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Match } from '@/types';
 import { MatchCard } from '@/components/match/MatchCard';
+import { LocalMatchDate } from '@/components/ui/LocalMatchDate';
 
 interface MatchesResponse {
   matches: Match[];
 }
 
 const SCHEDULE_REFRESH_INTERVAL_MS = 60 * 1000;
-const DISPLAY_LOCALE = undefined;
-
 export function ScheduleMatchesFeed() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,13 +49,13 @@ export function ScheduleMatchesFeed() {
   }, []);
 
   const sortedDates = useMemo(() => {
+    const dateKeyFormatter = new Intl.DateTimeFormat('en-CA', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
     const byDate = matches.reduce<Record<string, Match[]>>((acc, match) => {
-      const dateKey = new Date(match.utcDate).toLocaleDateString(DISPLAY_LOCALE, {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
+      const dateKey = dateKeyFormatter.format(new Date(match.utcDate));
 
       if (!acc[dateKey]) {
         acc[dateKey] = [];
@@ -66,7 +65,7 @@ export function ScheduleMatchesFeed() {
       return acc;
     }, {});
 
-    return Object.entries(byDate).sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime());
+    return Object.entries(byDate).sort(([a], [b]) => a.localeCompare(b));
   }, [matches]);
 
   if (isLoading) {
@@ -83,10 +82,14 @@ export function ScheduleMatchesFeed() {
 
   return (
     <>
-      {sortedDates.map(([date, dayMatches]) => (
-        <section key={date}>
+      {sortedDates.map(([dateKey, dayMatches]) => (
+        <section key={dateKey}>
           <div className="mb-4 flex items-center gap-3">
-            <h2 className="text-sm font-bold text-white md:text-base">{date}</h2>
+            <LocalMatchDate
+              utcDate={dayMatches[0].utcDate}
+              variant="long"
+              className="text-sm font-bold text-white md:text-base"
+            />
             <div className="h-px flex-1 bg-zinc-800" />
             <span className="shrink-0 text-xs text-zinc-600">
               {dayMatches.length} match{dayMatches.length !== 1 ? 'es' : ''}
