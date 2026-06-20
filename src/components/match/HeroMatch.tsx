@@ -2,15 +2,15 @@ import Link from 'next/link';
 import { Match } from '@/types';
 import {
   cn,
-  formatMatchDate,
   formatMatchStage,
-  formatMatchTime,
   formatVenueName,
   getMatchMinuteDisplay,
 } from '@/lib/utils';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
 import { FlagIcon } from '@/components/ui/FlagIcon';
 import { LiveBadge } from '@/components/ui/LiveBadge';
+import { LocalMatchDate } from '@/components/ui/LocalMatchDate';
+import { LocalMatchTime } from '@/components/ui/LocalMatchTime';
 
 interface HeroMatchProps {
   match: Match;
@@ -67,7 +67,12 @@ export function HeroMatch({ match }: HeroMatchProps) {
                 Full Time
               </span>
             )}
-            {isScheduled && <span className="text-[11px] text-zinc-500">{formatMatchDate(match.utcDate)}</span>}
+            {isScheduled && (
+              <LocalMatchDate
+                utcDate={match.utcDate}
+                className="text-[11px] text-zinc-500"
+              />
+            )}
           </div>
         </div>
 
@@ -80,7 +85,7 @@ export function HeroMatch({ match }: HeroMatchProps) {
                 <div className="text-4xl font-black text-wc-gold md:text-5xl">vs</div>
                 <div className="mt-1 text-center">
                   <p className="text-base font-bold text-white md:text-lg">
-                    {formatMatchTime(match.utcDate)}
+                    <LocalMatchTime utcDate={match.utcDate} />
                   </p>
                   <p className="mt-1 text-xs text-zinc-500">{formatVenueName(match.venue)}</p>
                   <p className="mt-3 font-mono text-2xl font-black text-wc-gold md:text-3xl">
