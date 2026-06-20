@@ -15,7 +15,6 @@ function formatLocalMatchTime(utcDate: string): string {
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
-    timeZoneName: "short",
   }).format(date);
 }
 
