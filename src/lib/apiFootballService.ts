@@ -288,12 +288,24 @@ function normalizeDateToMinute(value: string): string {
 function mergeScheduleData(match: Match, fixture: ApiFootballFixture): Match {
   const venue = fixture.fixture.venue?.name?.trim();
   const city = fixture.fixture.venue?.city?.trim();
+  const status = mapApiFootballStatus(fixture.fixture.status?.short) || match.status;
+  const minute = fixture.fixture.status?.elapsed ?? match.minute;
 
   return {
     ...match,
+    status,
     venue: venue || match.venue,
     city: city || match.city,
     country: match.country || inferHostCountry(city, venue),
+    score: {
+      home: fixture.goals?.home ?? match.score.home,
+      away: fixture.goals?.away ?? match.score.away,
+    },
+    halfTimeScore: {
+      home: fixture.score?.halftime?.home ?? match.halfTimeScore?.home ?? null,
+      away: fixture.score?.halftime?.away ?? match.halfTimeScore?.away ?? null,
+    },
+    minute,
     referee: match.referee || fixture.fixture.referee || undefined,
   };
 }
