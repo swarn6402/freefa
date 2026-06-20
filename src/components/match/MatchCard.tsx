@@ -3,14 +3,14 @@ import { Match } from '@/types';
 import {
   cn,
   formatGroupName,
-  formatMatchDate,
   formatMatchLocation,
-  formatMatchTime,
   getStageName,
 } from '@/lib/utils';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
 import { FlagIcon } from '@/components/ui/FlagIcon';
 import { LiveBadge } from '@/components/ui/LiveBadge';
+import { LocalMatchDate } from '@/components/ui/LocalMatchDate';
+import { LocalMatchTime } from '@/components/ui/LocalMatchTime';
 import { StreamBadge } from '@/components/StreamBadge';
 import { ScoreDisplay } from './ScoreDisplay';
 
@@ -69,7 +69,7 @@ export function MatchCard({ match, variant = 'default' }: MatchCardProps) {
                   isHomeVariant && 'rounded-full border border-white/8 bg-white/[0.04] px-2 py-1 text-zinc-300'
                 )}
               >
-                {formatMatchDate(match.utcDate)}
+                <LocalMatchDate utcDate={match.utcDate} />
               </span>
             )}
             {isFinished && <span className="text-[10px] font-bold tracking-wider text-zinc-600">FT</span>}
@@ -88,7 +88,7 @@ export function MatchCard({ match, variant = 'default' }: MatchCardProps) {
             <ScoreDisplay match={match} size="sm" />
             {isScheduled && (
               <div className="mt-1 text-[11px] font-bold text-wc-gold">
-                {formatMatchTime(match.utcDate)}
+                <LocalMatchTime utcDate={match.utcDate} />
               </div>
             )}
           </div>
