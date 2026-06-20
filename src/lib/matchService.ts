@@ -58,7 +58,7 @@ export async function getAllMatches(): Promise<Match[]> {
   const now = Date.now();
 
   if (matchCache && now - lastFetchTime < CACHE_TTL) {
-    return matchCache;
+    return normalizeMatchesForTimeline(matchCache);
   }
 
   try {
@@ -84,9 +84,9 @@ export async function getAllMatches(): Promise<Match[]> {
         );
         console.log('[matchService] football-data.org request succeeded:', res.status);
         console.log('[matchService] football-data.org matches returned:', mapped.length);
-        matchCache = mapped;
+        matchCache = normalizeMatchesForTimeline(mapped);
         lastFetchTime = now;
-        return mapped;
+        return matchCache;
       }
 
       console.warn('[matchService] football-data.org request failed:', res.status, res.statusText);
@@ -116,17 +116,17 @@ async function getFallbackMatches(reason: string): Promise<Match[]> {
         mapFootballDataMatches(officialMatchSnapshot.matches)
       )
     );
-    matchCache = snapshotMatches;
+    matchCache = normalizeMatchesForTimeline(snapshotMatches);
     lastFetchTime = Date.now();
-    return snapshotMatches;
+    return matchCache;
   }
 
   // Local development fallback only. Never use generated fixtures in production.
   console.log(`[matchService] ${reason}; using local generated fixtures`);
   const fixtures = generateFixtures();
-  matchCache = fixtures;
+  matchCache = normalizeMatchesForTimeline(fixtures);
   lastFetchTime = Date.now();
-  return fixtures;
+  return matchCache;
 }
 
 export async function getMatchById(id: string): Promise<Match | null> {
@@ -242,6 +242,34 @@ function shouldShowStreamLinks(match: Match): boolean {
   }
 
   return Date.now() - kickoff <= FINISHED_STREAM_VISIBLE_MS;
+}
+
+function normalizeMatchesForTimeline(matches: Match[]): Match[] {
+  return matches.map(normalizeMatchStatusForTimeline);
+}
+
+function normalizeMatchStatusForTimeline(match: Match): Match {
+  if (match.status !== 'SCHEDULED') {
+    return match;
+  }
+
+  const kickoff = new Date(match.utcDate).getTime();
+  if (Number.isNaN(kickoff)) {
+    return match;
+  }
+
+  const elapsedMs = Date.now() - kickoff;
+  if (elapsedMs < 0) {
+    return match;
+  }
+
+  const LIVE_WINDOW_MS = 2 * 60 * 60 * 1000;
+
+  return {
+    ...match,
+    status: elapsedMs < LIVE_WINDOW_MS ? 'LIVE' : 'FINISHED',
+    minute: elapsedMs < LIVE_WINDOW_MS ? estimateLiveMinute('LIVE', match.utcDate) : undefined,
+  };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
