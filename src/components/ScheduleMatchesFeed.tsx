@@ -9,8 +9,7 @@ interface MatchesResponse {
 }
 
 const SCHEDULE_REFRESH_INTERVAL_MS = 60 * 1000;
-const DISPLAY_LOCALE = 'en-IN';
-const DISPLAY_TIME_ZONE = 'Asia/Kolkata';
+const DISPLAY_LOCALE = undefined;
 
 export function ScheduleMatchesFeed() {
   const [matches, setMatches] = useState<Match[]>([]);
@@ -57,7 +56,6 @@ export function ScheduleMatchesFeed() {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
-        timeZone: DISPLAY_TIME_ZONE,
       });
 
       if (!acc[dateKey]) {
