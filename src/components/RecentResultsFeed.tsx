@@ -8,7 +8,7 @@ interface MatchesResponse {
   matches: Match[];
 }
 
-const RESULTS_REFRESH_INTERVAL_MS = 60 * 1000;
+const RESULTS_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
 export function RecentResultsFeed() {
   const [matches, setMatches] = useState<Match[]>([]);
