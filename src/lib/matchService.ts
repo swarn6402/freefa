@@ -12,9 +12,8 @@ import {
 } from './streamStore';
 
 // In-memory cache
-let matchCache: Match[] | null = null;
-let lastFetchTime = 0;
-const CACHE_TTL = 60 * 1000; // 60 seconds
+let matchCache: { data: Match[]; timestamp: number } | null = null;
+const MATCH_CACHE_TTL_MS = 60 * 1000; // 60 seconds
 const FINISHED_STREAM_VISIBLE_MS = 27 * 60 * 60 * 1000;
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
@@ -55,10 +54,8 @@ function getFlagForTeam(tla?: string): string {
 }
 
 export async function getAllMatches(): Promise<Match[]> {
-  const now = Date.now();
-
-  if (matchCache && now - lastFetchTime < CACHE_TTL) {
-    return normalizeMatchesForTimeline(matchCache);
+  if (matchCache && Date.now() - matchCache.timestamp < MATCH_CACHE_TTL_MS) {
+    return matchCache.data;
   }
 
   try {
@@ -84,9 +81,9 @@ export async function getAllMatches(): Promise<Match[]> {
         );
         console.log('[matchService] football-data.org request succeeded:', res.status);
         console.log('[matchService] football-data.org matches returned:', mapped.length);
-        matchCache = await enrichMatchesWithEspnScores(normalizeMatchesForTimeline(mapped));
-        lastFetchTime = now;
-        return matchCache;
+        const result = await enrichMatchesWithEspnScores(normalizeMatchesForTimeline(mapped));
+        matchCache = { data: result, timestamp: Date.now() };
+        return result;
       }
 
       console.warn('[matchService] football-data.org request failed:', res.status, res.statusText);
@@ -106,7 +103,7 @@ export async function getAllMatches(): Promise<Match[]> {
 async function getFallbackMatches(reason: string): Promise<Match[]> {
   if (matchCache) {
     console.warn(`[matchService] ${reason}; using last good match cache`);
-    return matchCache;
+    return matchCache.data;
   }
 
   if (IS_PRODUCTION) {
@@ -116,17 +113,17 @@ async function getFallbackMatches(reason: string): Promise<Match[]> {
         mapFootballDataMatches(officialMatchSnapshot.matches)
       )
     );
-    matchCache = await enrichMatchesWithEspnScores(normalizeMatchesForTimeline(snapshotMatches));
-    lastFetchTime = Date.now();
-    return matchCache;
+    const result = await enrichMatchesWithEspnScores(normalizeMatchesForTimeline(snapshotMatches));
+    matchCache = { data: result, timestamp: Date.now() };
+    return result;
   }
 
   // Local development fallback only. Never use generated fixtures in production.
   console.log(`[matchService] ${reason}; using local generated fixtures`);
   const fixtures = generateFixtures();
-  matchCache = await enrichMatchesWithEspnScores(normalizeMatchesForTimeline(fixtures));
-  lastFetchTime = Date.now();
-  return matchCache;
+  const result = await enrichMatchesWithEspnScores(normalizeMatchesForTimeline(fixtures));
+  matchCache = { data: result, timestamp: Date.now() };
+  return result;
 }
 
 export async function getMatchById(id: string): Promise<Match | null> {
