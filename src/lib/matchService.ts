@@ -1,6 +1,6 @@
 import { Match, StreamLink } from '@/types';
 import { enrichMatchWithApiFootballDetail, enrichMatchesWithApiFootballSchedule } from './apiFootballService';
-import { enrichMatchWithEspnEvents } from './espnService';
+import { enrichMatchWithEspnEvents, enrichMatchesWithEspnScores } from './espnService';
 import { generateFixtures, TEAMS } from './fixtures';
 import { enrichMatchesWithOfficialVenues } from './venueEnrichment';
 import officialMatchSnapshot from '@/data/worldCup2026MatchesSnapshot.json';
@@ -84,7 +84,7 @@ export async function getAllMatches(): Promise<Match[]> {
         );
         console.log('[matchService] football-data.org request succeeded:', res.status);
         console.log('[matchService] football-data.org matches returned:', mapped.length);
-        matchCache = normalizeMatchesForTimeline(mapped);
+        matchCache = await enrichMatchesWithEspnScores(normalizeMatchesForTimeline(mapped));
         lastFetchTime = now;
         return matchCache;
       }
@@ -116,7 +116,7 @@ async function getFallbackMatches(reason: string): Promise<Match[]> {
         mapFootballDataMatches(officialMatchSnapshot.matches)
       )
     );
-    matchCache = normalizeMatchesForTimeline(snapshotMatches);
+    matchCache = await enrichMatchesWithEspnScores(normalizeMatchesForTimeline(snapshotMatches));
     lastFetchTime = Date.now();
     return matchCache;
   }
@@ -124,7 +124,7 @@ async function getFallbackMatches(reason: string): Promise<Match[]> {
   // Local development fallback only. Never use generated fixtures in production.
   console.log(`[matchService] ${reason}; using local generated fixtures`);
   const fixtures = generateFixtures();
-  matchCache = normalizeMatchesForTimeline(fixtures);
+  matchCache = await enrichMatchesWithEspnScores(normalizeMatchesForTimeline(fixtures));
   lastFetchTime = Date.now();
   return matchCache;
 }

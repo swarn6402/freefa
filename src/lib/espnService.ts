@@ -308,6 +308,64 @@ function parseEspnMinute(displayValue?: string, fallbackClockValue?: number): nu
   return 0;
 }
 
+/**
+ * Batch-enrich scores for multiple matches with a single ESPN scoreboard sweep.
+ * Collects unique dates, fetches each once (cached), then patches scores
+ * via existing team-matching logic. Only touches matches missing scores.
+ */
+export async function enrichMatchesWithEspnScores(
+  matches: Match[],
+  revalidateSeconds = DEFAULT_ESPN_REVALIDATE_SECONDS
+): Promise<Match[]> {
+  const candidates = matches.filter(
+    (m) => (m.status === 'FINISHED' || m.status === 'LIVE' || m.status === 'HALF_TIME') && (m.score.home === null || m.score.away === null)
+  );
+  if (candidates.length === 0) return matches;
+
+  // Gather unique date strings to fetch
+  const uniqueDates = [...new Set(candidates.map((m) => formatEspnDate(new Date(m.utcDate))))];
+  const allEspnEvents: EspnEvent[] = [];
+  for (const date of uniqueDates) {
+    try {
+      allEspnEvents.push(...(await getScoreboardEventsForDate(date, revalidateSeconds)));
+    } catch {
+      // Individual date fetch failure is non-fatal; skip
+    }
+  }
+
+  if (allEspnEvents.length === 0) return matches;
+
+  // Build a quick lookup: espn event id -> competitors
+  const espnMap = new Map<string, EspnCompetitor[]>();
+  for (const event of allEspnEvents) {
+    const comp = event.competitions?.[0];
+    if (comp?.competitors?.length) {
+      espnMap.set(event.id, comp.competitors);
+    }
+  }
+
+  // For each candidate, find matching ESPN event and patch score
+  return matches.map((match) => {
+    if (match.score.home !== null && match.score.away !== null) return match;
+    if (match.status === 'SCHEDULED') return match;
+
+    const espnEvent = findMatchingEspnEvent(match, allEspnEvents);
+    if (!espnEvent) return match;
+
+    const competitors = espnMap.get(espnEvent.id);
+    if (!competitors) return match;
+
+    const espnScore = extractEspnScore(competitors);
+    return {
+      ...match,
+      score: {
+        home: match.score.home ?? espnScore.home,
+        away: match.score.away ?? espnScore.away,
+      },
+    };
+  });
+}
+
 function extractEspnScore(competitors: EspnCompetitor[]): { home: number | null; away: number | null } {
   const home = competitors.find((c) => c.homeAway === 'home');
   const away = competitors.find((c) => c.homeAway === 'away');
