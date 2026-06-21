@@ -14,7 +14,14 @@ export async function GET(req: NextRequest) {
         : await getAllMatches();
 
     const withStreams = await getMatchesWithStreams(matches);
-    return NextResponse.json({ matches: withStreams });
+    return NextResponse.json(
+      { matches: withStreams },
+      {
+        headers: {
+          'Cache-Control': 's-maxage=30, stale-while-revalidate=10'
+        }
+      }
+    );
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: 'Failed to fetch matches' }, { status: 500 });
