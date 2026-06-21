@@ -98,6 +98,308 @@ FreeFA uses a **layered enrichment model** to maintain data quality and availabi
 
 - **Static shells** keep major pages fast and stable
 - **Client-side feeds** (hero, live matches, recent results) refresh independently without burning ISR quota
+
+---
+
+## Project Structure & File Organization
+
+### Root Files
+
+- **`next.config.ts`** – Next.js configuration with custom build/runtime settings
+- **`tsconfig.json`** – TypeScript configuration
+- **`tailwind.config.mjs`** – Tailwind CSS configuration
+- **`postcss.config.mjs`** – PostCSS pipeline setup
+- **`eslint.config.mjs`** – ESLint linting rules
+- **`vercel.json`** – Vercel deployment configuration with edge functions and cron jobs
+- **`package.json`** – Dependencies and NPM scripts
+- **`next-env.d.ts`** – Auto-generated Next.js type definitions
+
+### `/public`
+
+- **`images/`** – Static assets (flags, logos, tournament imagery)
+
+### `/src/app`
+
+Next.js App Router pages and API routes:
+
+- **`page.tsx`** – Homepage (ISR 1h): hero feed, live matches, recent results, standings snapshot
+- **`layout.tsx`** – Root layout wrapper
+- **`globals.css`** – Global styles and Tailwind directives
+- **`apple-icon.tsx`** – Apple favicon
+- **`schedule/page.tsx`** – Schedule page (ISR 1d): full fixture list grouped by date/stage
+- **`standings/page.tsx`** – Standings page (ISR 1h): all group standings computed from results
+- **`match/[id]/page.tsx`** – Match detail page (ISR 15s): score, venue, kickoff time, streams, events
+- **`api/matches/route.ts`** – GET endpoint for fetching fixture data
+- **`api/matches/[id]/route.ts`** – GET endpoint for single match details
+- **`api/streams/route.ts`** – GET endpoint for stream links associated with a match
+- **`api/telegram/route.ts`** – POST endpoint triggered by GitHub Actions or Vercel cron for Telegram scraping
+
+### `/src/components`
+
+React components organized by feature:
+
+#### Layout Components (`layout/`)
+
+- **`Header.tsx`** – Navigation header with branding and links
+- **`BrandMark.tsx`** – FreeFA logo/branding component
+
+#### Feed Components (Homepage)
+
+- **`FeaturedHeroFeed.tsx`** – Dynamic hero section (live match or upcoming match)
+- **`LiveMatchesFeed.tsx`** – Section showing all currently live matches
+- **`RecentResultsFeed.tsx`** – Section showing recently finished matches
+- **`ScheduleMatchesFeed.tsx`** – Compact upcoming fixtures section
+
+#### Match Components (`match/`)
+
+- **`HeroMatch.tsx`** – Featured match hero display (used on homepage and match detail)
+- **`MatchCard.tsx`** – Compact match card (used in feeds and schedule)
+- **`MatchDetailView.tsx`** – Full match detail page layout
+- **`MatchDetailRecovery.tsx`** – Error/fallback component for match detail
+- **`MatchSection.tsx`** – Reusable match section container
+- **`ScoreDisplay.tsx`** – Score display with match status badge
+- **`StandingsTable.tsx`** – Group standings table
+
+#### Stream Components (`stream/`)
+
+- **`StreamPanel.tsx`** – Panel displaying stream links for a match
+
+#### UI Components (`ui/`)
+
+- **`CountdownTimer.tsx`** – Countdown to match kickoff
+- **`FlagIcon.tsx`** – Country flag icon component (uses country codes)
+- **`LiveBadge.tsx`** – Badge indicating a match is live
+- **`LocalMatchDate.tsx`** – Match date formatted to user's local timezone
+- **`LocalMatchTime.tsx`** – Match time formatted to user's local timezone
+
+#### Other Components
+
+- **`StreamBadge.tsx`** – Small badge indicating if a match has streams available
+
+### `/src/lib`
+
+Core services and utilities:
+
+#### API & Data Services
+
+- **`apiFootballService.ts`** – Integration with API-Football premium endpoints (optional enrichment)
+- **`espnService.ts`** – ESPN public scoreboard integration (free live events and scores)
+- **`fixtures.ts`** – Fixture fetching and normalization from football-data.org
+- **`matchService.ts`** – Match-level data assembly (combines multiple sources)
+- **`standingsService.ts`** – Standings computation from match results
+
+#### Telegram & Stream Integration
+
+- **`telegramScraper.ts`** – GramJS-based Telegram channel scraper for external stream links
+- **`streamStore.ts`** – Supabase stream link persistence and deduplication logic
+
+#### Database & Infrastructure
+
+- **`supabaseServer.ts`** – Supabase client initialization and server-side helper functions
+
+#### Enrichment & Utilities
+
+- **`venueEnrichment.ts`** – Venue/stadium/city mapping and normalization
+- **`utils.ts`** – General utility functions (date formatting, string helpers, etc.)
+
+### `/src/types`
+
+- **`index.ts`** – Centralized TypeScript type definitions for matches, fixtures, standings, streams, venues, etc.
+
+### `/src/data`
+
+- **`worldCup2026MatchesSnapshot.json`** – Fallback fixture snapshot (used if primary API is unavailable)
+
+### `/scripts`
+
+Automation and tooling:
+
+- **`create-telegram-session.mjs`** – Creates persistent Telegram session file for GramJS authentication
+- **`trigger-telegram.bat`** – Windows batch script to manually trigger Telegram scraping
+
+### `/supabase`
+
+Database schema:
+
+- **`stream_links.sql`** – Schema for `stream_links` table with deduplication constraints
+
+---
+
+## Core Services & Responsibilities
+
+### Data Flow
+
+```
+football-data.org (fixtures, official IDs)
+         ↓
+    fixtures.ts (fetch & normalize)
+         ↓
+    venueEnrichment.ts (add stadium/city)
+         ↓
+    espnService.ts (enrich with live events)
+         ↓
+    matchService.ts (assemble final match data)
+         ↓
+    [components consume via API routes]
+```
+
+### Telegram Scraping Flow
+
+```
+GitHub Actions or Vercel cron
+         ↓
+    /api/telegram route
+         ↓
+    telegramScraper.ts (GramJS scrape channels)
+         ↓
+    streamStore.ts (deduplicate & store in Supabase)
+         ↓
+    /api/streams route (serves cached links)
+```
+
+### API Routes
+
+| Route               | Method | Purpose                                                           |
+| ------------------- | ------ | ----------------------------------------------------------------- |
+| `/api/matches`      | GET    | Returns all World Cup 2026 fixtures                               |
+| `/api/matches/[id]` | GET    | Returns detailed info for a single match                          |
+| `/api/streams`      | GET    | Returns all streams in database (optionally filtered by match_id) |
+| `/api/telegram`     | POST   | Triggers Telegram scraping (called by scheduler)                  |
+
+---
+
+## Implementation Status
+
+### Fully Implemented ✅
+
+- **Homepage** – Live/upcoming hero, feeds, standings snapshot
+- **Schedule Page** – Full fixture list with grouping and stream badges
+- **Standings Page** – Computed group tables from match results
+- **Match Detail Page** – Score, venue, kickoff, streams, match events
+- **Telegram Scraping** – GramJS-based channel monitoring with Supabase persistence
+- **Stream Deduplication** – URL-based deduplication by match_id
+- **Venue Enrichment** – Stadium/city normalization layer
+- **ESPN Integration** – Live event and score enrichment
+- **Timezone Localization** – Client-side date/time conversion
+- **API Football Integration** – Optional premium enrichment layer
+- **Vercel Deployment** – Edge functions, ISR, cron jobs configured
+- **Analytics** – Vercel Analytics integrated
+
+### Partial / In Development
+
+- **Search/Filter** – Fuse.js imported but not fully integrated into UI
+- **Stream Link Discovery** – Telegram scraping works but may need channel/keyword tuning
+
+### Known Limitations
+
+- **API-Football** – Requires paid plan; free tiers may not expose 2026 season
+- **Telegram Scraping** – Requires valid phone number and session file; subject to Telegram rate limiting
+- **Fixture Data** – Knockout teams are `TBD` until groups stage is resolved
+- **ESPN Events** – Free layer may have latency during peak live match times
+
+---
+
+## Development Workflow
+
+### Local Development
+
+```bash
+npm install
+npm run dev
+# Server runs on http://localhost:3000
+```
+
+### Scripts
+
+```bash
+npm run build       # Build for production
+npm start           # Start production server
+npm run lint        # Run ESLint
+npm run telegram:session  # Create Telegram session file
+```
+
+### Manual Telegram Scraping
+
+Windows:
+
+```bash
+scripts\trigger-telegram.bat
+```
+
+Linux/Mac:
+
+```bash
+curl -X POST http://localhost:3000/api/telegram
+```
+
+### Deployment
+
+```bash
+git push  # Triggers GitHub Actions, pushes to Vercel
+```
+
+Vercel automatically:
+
+1. Builds and deploys on every push
+2. Runs cron job daily to scrape Telegram (backup to GitHub Actions)
+3. Uses edge functions for API routes where beneficial
+
+---
+
+## Key Architectural Decisions
+
+1. **Layered Data Strategy** – Multiple API sources provide fallback redundancy
+2. **ISR with Client Feeds** – Static page shells + client-side refreshing feeds balance performance and staleness
+3. **Computed Standings** – Calculated from match results rather than hardcoded, ensures consistency
+4. **Supabase Persistence** – Stream links survive across scrape cycles and are deduped by URL
+5. **Timezone Localization** – All match times rendered client-side for user's local timezone
+6. **Telegram GramJS** – Direct channel scraping bypasses API rate limits (requires session auth)
+7. **Vercel Cron + GitHub Actions** – Dual automation ensures scraping happens reliably
+
+---
+
+## Environment Variables Required
+
+Example `.env.local`:
+
+```
+NEXT_PUBLIC_FOOTBALL_DATA_KEY=your_football_data_org_api_key
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Optional
+NEXT_PUBLIC_API_FOOTBALL_KEY=your_api_football_key
+
+# Telegram (if running scraper locally)
+TELEGRAM_SESSION_FILE=telegram_session.json
+TELEGRAM_CHANNELS=channel1,channel2,channel3
+```
+
+---
+
+## Recent State Summary (as of June 21, 2026)
+
+**Current Date:** June 21, 2026 (early in World Cup 2026 tournament)
+
+- All core pages (home, schedule, standings, match detail) are functional and deployed
+- Telegram scraping is active and persisting streams in Supabase
+- Venue enrichment layer is normalizing stadium/city data consistently
+- ESPN live event integration is providing real-time match overlays
+- Stream discovery is working and matches are showing available links
+- Analytics are tracked via Vercel
+- No critical blockers; ongoing maintenance and feature refinement
+
+---
+
+## Next Steps & Potential Improvements
+
+- Enhance Telegram channel tuning (keyword filtering, channel list optimization)
+- Add advanced search/filter UI (Fuse.js is available but not exposed)
+- Expand API-Football integration for premium users
+- Add user preferences/bookmarking for favorite teams
+- Implement notifications for live match starts
+- Add more detailed player statistics and team info
+- Optimize image loading and caching strategies
 - **Targeted revalidation** on match pages when streams are added (no broad site invalidation)
 
 ### Service Layer Architecture
@@ -1071,4 +1373,4 @@ curl -H "x-cron-secret: YOUR_SECRET" http://localhost:3000/api/telegram
 **Session Status:** Analysis complete — no bugs identified, no code changes made  
 **Project Status:** Stable, all features implemented and deployed
 
-*This context document serves as the authoritative reference for project architecture, workflows, and operational details.*
+_This context document serves as the authoritative reference for project architecture, workflows, and operational details._
