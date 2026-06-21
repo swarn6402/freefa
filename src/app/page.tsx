@@ -1,6 +1,5 @@
 import Image from 'next/image';
-import { FeaturedHeroFeed } from '@/components/FeaturedHeroFeed';
-import { LiveMatchesFeed } from '@/components/LiveMatchesFeed';
+import { HomeFeed } from '@/components/HomeFeed';
 import { RecentResultsFeed } from '@/components/RecentResultsFeed';
 import { MatchSection } from '@/components/match/MatchSection';
 import { StandingsTable } from '@/components/match/StandingsTable';
@@ -62,9 +61,7 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <FeaturedHeroFeed initialMatch={featuredMatch} />
-
-        <LiveMatchesFeed />
+        <HomeFeed initialMatch={featuredMatch} />
 
         <MatchSection
           title="Upcoming"
