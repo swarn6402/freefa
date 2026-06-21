@@ -29,6 +29,8 @@ interface EspnCompetition {
 
 interface EspnCompetitor {
   homeAway?: 'home' | 'away';
+  // ESPN sends scores as strings ("5", "1"); coerced to numbers on read.
+  score?: number | string;
   team?: {
     id?: string;
     abbreviation?: string;
@@ -87,12 +89,20 @@ export async function enrichMatchWithEspnEvents(
     const city = competition?.venue?.address?.city?.trim();
     const country = competition?.venue?.address?.country?.trim();
 
+    // Extract scores from ESPN competitors
+    const espnScore = extractEspnScore(competition?.competitors || []);
+
     return {
       ...match,
       venue: venue || match.venue,
       city: city || match.city,
       country: country || match.country,
       events: events.length > 0 ? events : match.events,
+      // Use ESPN score if available and current score is missing
+      score: {
+        home: match.score.home ?? espnScore.home,
+        away: match.score.away ?? espnScore.away,
+      },
     };
   } catch (error) {
     console.warn('[espnService] Failed to enrich match with ESPN events:', error);
@@ -296,4 +306,23 @@ function parseEspnMinute(displayValue?: string, fallbackClockValue?: number): nu
   }
 
   return 0;
+}
+
+function extractEspnScore(competitors: EspnCompetitor[]): { home: number | null; away: number | null } {
+  const home = competitors.find((c) => c.homeAway === 'home');
+  const away = competitors.find((c) => c.homeAway === 'away');
+
+  return {
+    home: coerceEspnScore(home?.score),
+    away: coerceEspnScore(away?.score),
+  };
+}
+
+// ESPN delivers scores as strings ("5"); normalize to a finite, non-negative number.
+// Blank/whitespace strings mean "no score yet" and map to null (not 0).
+function coerceEspnScore(raw: number | string | undefined): number | null {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw === 'string' && raw.trim() === '') return null;
+  const value = typeof raw === 'number' ? raw : Number(raw);
+  return Number.isFinite(value) && value >= 0 ? value : null;
 }
