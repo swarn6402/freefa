@@ -9,7 +9,10 @@ interface MatchesResponse {
   matches: Match[];
 }
 
-const SCHEDULE_REFRESH_INTERVAL_MS = 60 * 1000;
+// Schedule fixtures change at most daily (page revalidate is 86400s); a 5-min
+// client refresh is enough to surface live score/status changes without burning
+// edge requests on a list of 104 matches.
+const SCHEDULE_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 export function ScheduleMatchesFeed() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [isLoading, setIsLoading] = useState(true);
