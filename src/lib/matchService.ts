@@ -190,14 +190,27 @@ export async function addStreamLink(link: StreamLink): Promise<boolean> {
 
 export async function getStreamLinks(matchId: string): Promise<StreamLink[]> {
   const streams = await getPersistedStreamLinks(matchId);
-  const matches = await getAllMatches();
-  const match = matches.find((m) => m.id === matchId);
+  // Visibility is derived from each link's own age rather than the parent match.
+  // This keeps the hot path (polled once per live viewer every ~60s) off the
+  // expensive getAllMatches() fetch + enrichment, which previously ran on every
+  // cold function instance just to read one match's status/kickoff time.
+  return filterRecentStreamLinks(streams);
+}
 
-  if (!match) {
+function filterRecentStreamLinks(streams: StreamLink[]): StreamLink[] {
+  if (streams.length === 0) {
     return streams;
   }
 
-  return filterVisibleStreamLinks(match, streams);
+  const now = Date.now();
+  return streams.filter((stream) => {
+    const addedAt = new Date(stream.addedAt).getTime();
+    if (Number.isNaN(addedAt)) {
+      return true;
+    }
+
+    return now - addedAt <= FINISHED_STREAM_VISIBLE_MS;
+  });
 }
 
 export async function getRecentStreamLinks(limit?: number): Promise<StreamLink[]> {

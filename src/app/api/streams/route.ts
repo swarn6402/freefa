@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     { streams },
     {
       headers: {
-        'Cache-Control': 's-maxage=30, stale-while-revalidate=30',
+        'Cache-Control': 's-maxage=60, stale-while-revalidate=30',
       },
     }
   );
