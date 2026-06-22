@@ -1,12 +1,4 @@
-'use client';
-
-import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { StreamLink } from '@/types';
-
-interface StreamsResponse {
-  streams: StreamLink[];
-}
 
 interface StreamBadgeProps {
   matchId: string;
@@ -15,50 +7,17 @@ interface StreamBadgeProps {
   emptyLabel?: string;
 }
 
-const STREAM_REFRESH_INTERVAL_MS = 30 * 1000;
-
+// Presentational only: stream counts arrive embedded in the match payload
+// (getMatchesWithStreams), so the parent feeds already keep this fresh on their
+// own refresh cadence. Polling per-card here previously caused thousands of
+// uncached /api/streams requests/hour (104 cards on /schedule alone).
 export function StreamBadge({
-  matchId,
   initialCount = 0,
   className,
   emptyLabel = 'Watch',
 }: StreamBadgeProps) {
-  const [count, setCount] = useState(initialCount);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadStreams() {
-      try {
-        const response = await fetch(`/api/streams?matchId=${encodeURIComponent(matchId)}`, {
-          cache: 'no-store',
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to load streams for match ${matchId}: ${response.status}`);
-        }
-
-        const data = (await response.json()) as StreamsResponse;
-        if (!cancelled) {
-          setCount(data.streams?.length || 0);
-        }
-      } catch (error) {
-        console.error('[StreamBadge] Failed to fetch stream count:', error);
-      }
-    }
-
-    void loadStreams();
-    const interval = window.setInterval(() => {
-      void loadStreams();
-    }, STREAM_REFRESH_INTERVAL_MS);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, [matchId]);
-
-  const hasStreams = count > 0;
+  const hasStreams = initialCount > 0;
+  const count = initialCount;
 
   return (
     <span
