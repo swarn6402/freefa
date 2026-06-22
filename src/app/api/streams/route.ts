@@ -8,7 +8,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'matchId required' }, { status: 400 });
   }
   const streams = await getStreamLinks(matchId);
-  return NextResponse.json({ streams });
+  return NextResponse.json(
+    { streams },
+    {
+      headers: {
+        'Cache-Control': 's-maxage=30, stale-while-revalidate=30',
+      },
+    }
+  );
 }
 
 export async function POST(req: NextRequest) {
