@@ -13,7 +13,7 @@ import {
 
 // In-memory cache
 let matchCache: { data: Match[]; timestamp: number } | null = null;
-const MATCH_CACHE_TTL_MS = 60 * 1000; // 60 seconds
+const MATCH_CACHE_TTL_MS = 120 * 1000; // 120 seconds
 const FINISHED_STREAM_VISIBLE_MS = 27 * 60 * 60 * 1000;
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
