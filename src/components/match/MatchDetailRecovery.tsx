@@ -13,7 +13,10 @@ interface MatchDetailRecoveryProps {
   matchId: string;
 }
 
-const RETRY_INTERVAL_MS = 2500;
+// 15s between retries with a hard cap so an endpoint that stays unavailable
+// can't silently burn ~1,440 requests/hour per open tab (previously 2.5s, no cap).
+const RETRY_INTERVAL_MS = 15 * 1000;
+const MAX_RETRIES = 10;
 
 export function MatchDetailRecovery({ matchId }: MatchDetailRecoveryProps) {
   const [match, setMatch] = useState<Match | null>(null);
@@ -21,6 +24,7 @@ export function MatchDetailRecovery({ matchId }: MatchDetailRecoveryProps) {
 
   useEffect(() => {
     let cancelled = false;
+    let retries = 0;
 
     async function loadMatch() {
       try {
@@ -43,6 +47,11 @@ export function MatchDetailRecovery({ matchId }: MatchDetailRecoveryProps) {
 
     void loadMatch();
     const interval = window.setInterval(() => {
+      retries += 1;
+      if (retries > MAX_RETRIES) {
+        window.clearInterval(interval);
+        return;
+      }
       void loadMatch();
     }, RETRY_INTERVAL_MS);
 
