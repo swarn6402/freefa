@@ -84,6 +84,8 @@ export function StreamPanel({ streams, matchId, status }: StreamPanelProps) {
     );
   }
 
+  const displayStreams = deduplicateStreams(liveStreams).slice(0, 12);
+
   return (
     <div className="overflow-hidden rounded-xl border border-wc-gold/30 bg-zinc-900/50">
       <div className="flex items-center justify-between border-b border-wc-gold/20 bg-wc-gold/10 px-4 py-3">
@@ -91,7 +93,7 @@ export function StreamPanel({ streams, matchId, status }: StreamPanelProps) {
           <span>📡</span> Watch Live
         </h3>
         <span className="rounded bg-wc-gold/20 px-2 py-0.5 text-xs font-bold text-wc-gold">
-          {liveStreams.length} stream{liveStreams.length > 1 ? "s" : ""} available
+          {displayStreams.length} stream{displayStreams.length > 1 ? "s" : ""} available
         </span>
       </div>
 
@@ -101,7 +103,7 @@ export function StreamPanel({ streams, matchId, status }: StreamPanelProps) {
       </p>
 
       <div className="divide-y divide-zinc-800/60">
-        {liveStreams.map((stream, idx) => (
+        {displayStreams.map((stream, idx) => (
           <StreamRow key={stream.id} stream={stream} index={idx + 1} />
         ))}
       </div>
@@ -139,7 +141,9 @@ function StreamRow({ stream, index }: { stream: StreamLink; index: number }) {
 
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-white transition-colors group-hover:text-wc-gold">
-          Stream {index}
+          {stream.label && stream.label !== 'Live stream'
+            ? stream.label
+            : `Stream ${index}`}
         </p>
       </div>
 
@@ -159,4 +163,22 @@ function StreamRow({ stream, index }: { stream: StreamLink; index: number }) {
       </span>
     </a>
   );
+}
+
+function deduplicateStreams(streams: StreamLink[]): StreamLink[] {
+  const seen = new Set<string>();
+  return streams.filter(stream => {
+    try {
+      const hostname = new URL(stream.url).hostname;
+      const id = new URL(stream.url).searchParams.get('id') ||
+                 new URL(stream.url).searchParams.get('play') ||
+                 stream.url;
+      const key = `${hostname}:${id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    } catch {
+      return true;
+    }
+  });
 }
