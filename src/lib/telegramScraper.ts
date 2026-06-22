@@ -37,6 +37,14 @@ const STREAM_CONTEXT_KEYWORDS = [
   'links',
 ];
 
+const KNOWN_STREAM_DOMAINS = [
+  'footsterss.pages.dev',
+  'toxifyxe.pages.dev',
+  'run-machine-hd.pages.dev',
+  'fifa26-live.pages.dev',
+  'footsters.api-live.workers.dev',
+];
+
 // Team name aliases for fuzzy matching
 const TEAM_ALIASES: Record<string, string[]> = {
   USA: ['united states', 'usa', 'america', 'usmnt'],
@@ -51,6 +59,53 @@ const TEAM_ALIASES: Record<string, string[]> = {
   JAP: ['japan', 'jpn', 'japan'],
   KOR: ['south korea', 'kor', 'korea'],
   NED: ['netherlands', 'ned', 'holland', 'oranje'],
+  TUN: ['tunisia', 'tun', 'carthage eagles'],
+  JPN: ['japan', 'jpn', 'samurai blue'],
+  KSA: ['saudi arabia', 'ksa', 'green falcons'],
+  CIV: ['ivory coast', 'civ', 'cote divoire', 'elephants'],
+  SEN: ['senegal', 'sen', 'lions of teranga'],
+  MOR: ['morocco', 'mor', 'atlas lions'],
+  CMR: ['cameroon', 'cmr', 'indomitable lions'],
+  GHA: ['ghana', 'gha', 'black stars'],
+  NGA: ['nigeria', 'nga', 'super eagles'],
+  EGY: ['egypt', 'egy', 'pharaohs'],
+  ALG: ['algeria', 'alg', 'desert foxes'],
+  ZAF: ['south africa', 'zaf', 'bafana bafana'],
+  AUS: ['australia', 'aus', 'socceroos'],
+  IRN: ['iran', 'irn', 'team melli'],
+  QAT: ['qatar', 'qat', 'the maroon'],
+  IRQ: ['iraq', 'irq', 'lions of mesopotamia'],
+  JOR: ['jordan', 'jor', 'chivalrous'],
+  UZB: ['uzbekistan', 'uzb', 'white wolves'],
+  COL: ['colombia', 'col', 'los cafeteros'],
+  ECU: ['ecuador', 'ecu', 'la tri'],
+  URU: ['uruguay', 'uru', 'la celeste'],
+  PER: ['peru', 'per', 'la blanquirroja'],
+  CHI: ['chile', 'chi', 'la roja'],
+  VEN: ['venezuela', 'ven', 'la vinotinto'],
+  BOL: ['bolivia', 'bol', 'la verde'],
+  CRC: ['costa rica', 'crc', 'los ticos'],
+  PAN: ['panama', 'pan', 'los canaleros'],
+  HON: ['honduras', 'hon', 'los catrachos'],
+  SLV: ['el salvador', 'slv', 'la selecta'],
+  CAN: ['canada', 'can', 'les rouges'],
+  JAM: ['jamaica', 'jam', 'reggae boyz'],
+  HAI: ['haiti', 'hai', 'les grenadiers'],
+  TRI: ['trinidad and tobago', 'tri', 'soca warriors'],
+  POL: ['poland', 'pol', 'bialo-czerwoni'],
+  CZE: ['czech republic', 'cze', 'czechia'],
+  AUT: ['austria', 'aut', 'das team'],
+  BEL: ['belgium', 'bel', 'red devils'],
+  SUI: ['switzerland', 'sui', 'nati'],
+  SCO: ['scotland', 'sco', 'tartan army'],
+  HUN: ['hungary', 'hun', 'magyars'],
+  ALB: ['albania', 'alb', 'red and blacks'],
+  SVN: ['slovenia', 'svn', 'zmajceki'],
+  SRB: ['serbia', 'srb', 'eagles'],
+  ROU: ['romania', 'rou', 'tricolorii'],
+  UKR: ['ukraine', 'ukr', 'zhovto-blakytni'],
+  TUR: ['turkey', 'tur', 'crescent-stars'],
+  GEO: ['georgia', 'geo', 'crusaders'],
 };
 
 interface TelegramMessage {
@@ -100,7 +155,7 @@ interface MatchTargetResult {
 
 const TELEGRAM_MESSAGE_LIMIT = 200;
 const MATCH_WINDOW_HOURS = 6;
-const GENERIC_LINK_BEFORE_KICKOFF_HOURS = 0.75;
+const GENERIC_LINK_BEFORE_KICKOFF_HOURS = 2;
 const GENERIC_LINK_AFTER_KICKOFF_HOURS = 3.5;
 const RECENT_STREAM_FALLBACK_HOURS = 12;
 const RECENT_STREAM_FALLBACK_LIMIT = 8;
@@ -408,6 +463,12 @@ function hasStreamContextKeywords(text: string): boolean {
 
 function isLikelyStreamLink(link: string, hasStreamContext: boolean): boolean {
   const lower = link.toLowerCase();
+  try {
+    const hostname = new URL(link).hostname.toLowerCase();
+    if (KNOWN_STREAM_DOMAINS.includes(hostname)) return true;
+  } catch {
+    // ignore malformed URLs
+  }
   return hasStreamContext || STREAM_URL_HINTS.some((hint) => lower.includes(hint));
 }
 
