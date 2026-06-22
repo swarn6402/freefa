@@ -14,7 +14,10 @@ interface StreamsResponse {
   streams?: StreamLink[];
 }
 
-const LIVE_STREAM_REFRESH_INTERVAL_MS = 30 * 1000;
+// Streams are ingested by the scraper every ~5-15 min, so a 60s refresh is
+// ample and halves edge requests/CPU vs. the previous 30s. /api/streams is also
+// CDN-cached (s-maxage), so most of these polls never reach a function.
+const LIVE_STREAM_REFRESH_INTERVAL_MS = 60 * 1000;
 
 export function StreamPanel({ streams, matchId, status }: StreamPanelProps) {
   const [polledStreams, setPolledStreams] = useState<StreamLink[] | null>(null);
