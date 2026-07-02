@@ -14,7 +14,7 @@ It was built to feel like a real product, not a static tournament microsite: fas
 - Enriches match detail with goal events and basic live updates
 - Scrapes configured Telegram channels for external stream links
 - Stores matched stream links in Supabase so they persist beyond a single scrape run
-- Automates scraping with GitHub Actions and keeps a daily Vercel cron as backup
+- Runs the website on Cloudflare Workers and automates scraping with GitHub Actions
 
 ## Feature Overview
 
@@ -133,7 +133,7 @@ The app uses a hybrid model:
 - client-side feeds for fast-changing homepage/live sections
 - targeted revalidation for match pages when stream links are added
 
-This keeps the site responsive without burning through ISR writes on Vercel Hobby.
+This keeps the site responsive while keeping Cloudflare Worker requests and KV-backed ISR writes modest.
 
 ## Project Structure
 
@@ -183,7 +183,7 @@ TELEGRAM_API_HASH=your_api_hash_here
 TELEGRAM_SESSION_STRING=your_session_string_here
 TELEGRAM_CHANNELS=Footstersreal,-1002281665422,-1001533565122
 
-# Protected scrape trigger
+# Protected scrape trigger for the legacy/manual API route
 CRON_SECRET=your_random_secret_here
 
 # Optional manual stream insertion endpoint
@@ -194,7 +194,7 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_KEY=your_service_key
 
 # Optional app URL metadata
-NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
+NEXT_PUBLIC_APP_URL=https://wc2026.freefa.workers.dev
 ```
 
 Reference template: [`.env.local.example`](./.env.local.example)
@@ -263,7 +263,19 @@ FreeFA does not use a Telegram bot token. It uses a Telegram user session via Gr
 
 ### Manual trigger
 
-You can still trigger scraping manually:
+The primary scraper runs as a standalone GitHub Actions job. You can run the same path locally:
+
+```bash
+npm run scrape:telegram
+```
+
+You can force a local scrape even outside the live/kickoff window:
+
+```bash
+npm run scrape:telegram -- --force
+```
+
+The legacy/manual API route can also trigger scraping when deployed in an environment that supports GramJS:
 
 ```bash
 curl -X GET https://your-domain.com/api/telegram \
@@ -282,9 +294,9 @@ For local Windows use, there is also a helper script:
 
 ## Automation
 
-The project uses two schedulers together:
+The project uses GitHub Actions as the primary scheduler for scraping.
 
-### GitHub Actions primary scheduler
+### GitHub Actions scheduler
 
 Workflow file:
 
@@ -294,31 +306,35 @@ Behavior:
 
 - runs every 5 minutes
 - can also be launched manually with `workflow_dispatch`
-- calls the production `/api/telegram` endpoint with `x-cron-secret`
+- runs `npm run scrape:telegram` directly in Node
+- writes matched stream links to Supabase
 
-Required GitHub secret:
+Required GitHub secrets:
 
-- `CRON_SECRET`
+- `TELEGRAM_API_ID`
+- `TELEGRAM_API_HASH`
+- `TELEGRAM_SESSION_STRING`
+- `TELEGRAM_CHANNELS`
+- `FOOTBALL_DATA_API_KEY`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `SUPABASE_SERVICE_KEY`
 
-### Vercel backup cron
+Optional GitHub secret:
 
-File:
+- `API_FOOTBALL_KEY`
 
-- [vercel.json](c:/Users/swarn/Downloads/wc2026/wc2026/vercel.json)
+### Legacy Vercel cron
 
-Behavior:
-
-- runs once per day
-- acts as a fallback trigger
+[vercel.json](c:/Users/swarn/Downloads/wc2026/wc2026/vercel.json) still contains the old daily `/api/telegram` cron for the Vercel fallback deployment. The current Cloudflare/GitHub Actions setup does not depend on it.
 
 ### Built-in safety check
 
-Before the Telegram scraper logs in, [src/app/api/telegram/route.ts](c:/Users/swarn/Downloads/wc2026/wc2026/src/app/api/telegram/route.ts) now checks whether there is:
+Before the Telegram scraper logs in, both [scripts/scrape-telegram.mts](c:/Users/swarn/Downloads/wc2026/wc2026/scripts/scrape-telegram.mts) and [src/app/api/telegram/route.ts](c:/Users/swarn/Downloads/wc2026/wc2026/src/app/api/telegram/route.ts) check whether there is:
 
 - a live match, or
 - a near-kickoff window
 
-If not, the route exits early. This keeps automation light on free-tier infrastructure.
+If not, the scraper exits early. This keeps automation light on free-tier infrastructure.
 
 ## API Surface
 
@@ -356,24 +372,25 @@ Headers:
 
 ## Deployment
 
-FreeFA is designed to deploy cleanly on Vercel.
+FreeFA's current production website is deployed to Cloudflare Workers through OpenNext.
 
 ### Production checklist
 
-1. import the repository into Vercel
-2. add all required environment variables
-3. create the Supabase table from `supabase/stream_links.sql`
-4. add `CRON_SECRET` to both:
-   - Vercel environment variables
-   - GitHub Actions repository secrets
-5. deploy
+1. install dependencies with `npm install`
+2. create the Supabase table from `supabase/stream_links.sql`
+3. create/configure the Cloudflare KV namespace bound as `NEXT_INC_CACHE_KV`
+4. add Worker secrets with `npx wrangler secret put`
+5. add the Telegram/Supabase secrets to GitHub Actions
+6. deploy the website with `npm run deploy`
+
+Important: keep the production build on Webpack (`next build --webpack`). Turbopack output caused Worker runtime chunk-loading failures with OpenNext.
 
 ### Current page revalidation
 
 - `/` -> `1h`
 - `/standings` -> `1h`
 - `/schedule` -> `1d`
-- `/match/[id]` -> `15s`
+- `/match/[id]` -> `45s`
 
 This balance keeps the shell stable while leaving live surfaces reactive.
 
@@ -384,17 +401,21 @@ npm run dev
 npm run build
 npm run start
 npm run lint
+npm run preview
+npm run deploy
+npm run cf-typegen
 npm run telegram:session
+npm run scrape:telegram
 ```
 
 ## Engineering Notes
 
-- Match times are rendered in `Asia/Kolkata` for the current product setup.
-- The app includes generated fixture fallbacks if external APIs fail.
+- Match times are rendered in the viewer's local browser timezone.
+- Production falls back to the bundled official match snapshot if external match APIs fail; local development can use generated fixtures.
 - Stream revalidation is scoped to the affected match page instead of broad site-wide invalidation.
 - Live homepage sections use client-side fetching to reduce unnecessary ISR churn.
 - The scraper intentionally ignores Telegram-native links and keeps only external stream targets.
-- Stream links for finished matches are hidden from the public app after roughly 24 hours.
+- Stream links for finished matches are hidden from the public app after roughly 27 hours.
 
 ## Contributing
 
