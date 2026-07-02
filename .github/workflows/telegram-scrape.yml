@@ -4,30 +4,42 @@ on:
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force a scrape even if no match is live/near kickoff'
+        type: boolean
+        default: false
 
 concurrency:
   group: telegram-scrape
   cancel-in-progress: false
 
 jobs:
-  trigger:
+  scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
-      - name: Trigger production Telegram scrape
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Telegram scraper
         env:
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          TRIGGER_URL: https://freefifa.vercel.app/api/telegram
-        run: |
-          if [ -z "$CRON_SECRET" ]; then
-            echo "Missing GitHub Actions secret: CRON_SECRET"
-            exit 1
-          fi
-
-          response=$(curl --silent --show-error --fail-with-body \
-            -X POST \
-            -H "x-cron-secret: $CRON_SECRET" \
-            -H "Content-Type: application/json" \
-            "$TRIGGER_URL")
-
-          echo "$response"
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          TELEGRAM_SESSION_STRING: ${{ secrets.TELEGRAM_SESSION_STRING }}
+          TELEGRAM_CHANNELS: ${{ secrets.TELEGRAM_CHANNELS }}
+          FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          FORCE_SCRAPE: ${{ inputs.force }}
+        run: npm run scrape:telegram

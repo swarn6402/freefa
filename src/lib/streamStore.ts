@@ -1,4 +1,3 @@
-import { revalidatePath } from 'next/cache';
 import { Match, StreamLink } from '@/types';
 import { getSupabaseAdminClient } from './supabaseServer';
 
@@ -160,16 +159,18 @@ function addStreamLinkToMemory(link: StreamLink): boolean {
   return true;
 }
 
-function revalidateStreamPaths(matchId: string): void {
-  revalidatePath(`/match/${matchId}`);
-}
-
 function safeRevalidateStreamPath(matchId: string): void {
-  try {
-    revalidateStreamPaths(matchId);
-  } catch (error) {
-    console.warn('[streamStore] Skipping revalidation outside request context:', error);
-  }
+  // Imported lazily so this module can run outside Next.js (e.g. the
+  // standalone Telegram scraper on GitHub Actions), where `next/cache`
+  // has no request context. Fire-and-forget; failures are swallowed.
+  void (async () => {
+    try {
+      const { revalidatePath } = await import('next/cache');
+      revalidatePath(`/match/${matchId}`);
+    } catch (error) {
+      console.warn('[streamStore] Skipping revalidation outside request context:', error);
+    }
+  })();
 }
 
 function toStreamLinkRow(link: StreamLink): StreamLinkRow {
