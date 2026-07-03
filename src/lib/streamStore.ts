@@ -160,6 +160,13 @@ function addStreamLinkToMemory(link: StreamLink): boolean {
 }
 
 function safeRevalidateStreamPath(matchId: string): void {
+  // The standalone Telegram scraper (GitHub Actions) has no Next.js request
+  // context, so revalidatePath always throws there. Skip it outright rather
+  // than import-throw-catch once per stored link.
+  if (process.env.SCRAPER_STANDALONE === 'true') {
+    return;
+  }
+
   // Imported lazily so this module can run outside Next.js (e.g. the
   // standalone Telegram scraper on GitHub Actions), where `next/cache`
   // has no request context. Fire-and-forget; failures are swallowed.
