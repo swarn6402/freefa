@@ -178,11 +178,17 @@ function deduplicateStreams(streams: StreamLink[]): StreamLink[] {
   const seen = new Set<string>();
   return streams.filter(stream => {
     try {
-      const hostname = new URL(stream.url).hostname;
-      const id = new URL(stream.url).searchParams.get('id') ||
-                 new URL(stream.url).searchParams.get('play') ||
-                 stream.url;
-      const key = `${hostname}:${id}`;
+      const url = new URL(stream.url);
+      const params = url.searchParams;
+      // Identify a stream by the params that actually distinguish it. `play`
+      // alone is NOT unique — footsters-tv posts many channels under one
+      // play id, separated by `stream` (stream=0, stream=1, …). Keying on
+      // `play` only would collapse them all into one. Include `stream`.
+      const id =
+        params.get('id') ||
+        [params.get('play'), params.get('stream')].filter(Boolean).join(':') ||
+        `${url.pathname}${url.search}`;
+      const key = `${url.hostname}:${id}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
