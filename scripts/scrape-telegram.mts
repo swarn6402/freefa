@@ -10,6 +10,11 @@ import type { Match } from '../src/types';
 import { getAllMatches } from '../src/lib/matchService';
 import { scrapeTelegramChannels } from '../src/lib/telegramScraper';
 
+// Mark this as the standalone (non-Next.js) runtime so streamStore skips
+// revalidatePath — it can never work outside a Next request context and would
+// otherwise throw a caught-but-noisy Invariant error for every stored link.
+process.env.SCRAPER_STANDALONE = 'true';
+
 // Load .env.local when present (local runs). No-op in CI, where the real
 // env vars are injected directly — process.env still wins for anything unset.
 nextEnv.loadEnvConfig(process.cwd());
