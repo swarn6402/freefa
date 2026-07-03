@@ -45,6 +45,13 @@ const KNOWN_STREAM_DOMAINS = [
   'footsters.api-live.workers.dev',
 ];
 
+// The stream sites are all hosted on Cloudflare Pages/Workers and rotate their
+// exact subdomain constantly (toxifyxe → toxifyfoot → …), so the explicit list
+// above is always going out of date. Treat the whole hosting suffix as a strong
+// signal instead. Telegram invite/post links are already filtered out earlier
+// (isTelegramLink), so "join this channel" links never reach here.
+const STREAM_HOST_SUFFIXES = ['.pages.dev', '.workers.dev'];
+
 // Team name aliases for fuzzy matching
 const TEAM_ALIASES: Record<string, string[]> = {
   USA: ['united states', 'usa', 'america', 'usmnt'],
@@ -232,6 +239,9 @@ export async function scrapeTelegramChannels(): Promise<TelegramScrapeSummary> {
           (count, message) => count + extractCandidateLinks(message.text).discardedTelegram.length,
           0
         );
+        const discardedOtherUrls = messages.flatMap(
+          (message) => extractCandidateLinks(message.text).discardedOther
+        );
         summary.messagesFetched += messages.length;
         summary.urlsExtracted += extractedUrlCount;
         summary.telegramUrlsDiscarded += discardedTelegramUrlCount;
@@ -241,6 +251,14 @@ export async function scrapeTelegramChannels(): Promise<TelegramScrapeSummary> {
           `[Telegram] Telegram invite/post links discarded from ${channel.raw}:`,
           discardedTelegramUrlCount
         );
+        if (discardedOtherUrls.length > 0) {
+          // Surface non-stream URLs we dropped so a future "missing links"
+          // report can be diagnosed from the log instead of guessed at.
+          console.log(
+            `[Telegram] Non-stream URLs discarded from ${channel.raw}:`,
+            [...new Set(discardedOtherUrls)]
+          );
+        }
         allMessages.push(...messages);
       } catch (err) {
         summary.channelErrors += 1;
@@ -363,18 +381,20 @@ async function matchLinksToFixtures(messages: TelegramMessage[]): Promise<MatchL
     );
 
     if (targetMatches.matchIds.length > 0 && targetMatches.bestScore < 0.4) {
-      for (const link of links) {
+      for (const [linkIndex, link] of links.entries()) {
+        const label = resolveStreamLabel(link, message.channel);
+        const detectionText = `${link.label} ${link.url} ${message.text}`;
         for (const matchId of targetMatches.matchIds) {
           const streamLink: StreamLink = {
-            id: `${message.channel}_${message.id}_${matchId}_${Date.now()}`,
+            id: `${message.channel}_${message.id}_${matchId}_${linkIndex}_${Date.now()}`,
             matchId,
-            url: link,
-            label: `Stream from @${message.channel}`,
+            url: link.url,
+            label,
             source: message.channel,
             addedAt: new Date(message.date * 1000).toISOString(),
             verified: false,
-            quality: detectQuality(message.text),
-            language: detectLanguage(message.text),
+            quality: detectQuality(detectionText),
+            language: detectLanguage(detectionText),
           };
           const stored = await addStreamLink(streamLink);
           if (stored) {
@@ -383,7 +403,8 @@ async function matchLinksToFixtures(messages: TelegramMessage[]): Promise<MatchL
             result.streamsSkipped += 1;
           }
           console.log('[Telegram] Stream storage result:', {
-            url: link,
+            url: link.url,
+            label,
             matchId,
             confidenceScore: targetMatches.bestScore,
             reason: targetMatches.reason,
@@ -395,7 +416,8 @@ async function matchLinksToFixtures(messages: TelegramMessage[]): Promise<MatchL
       for (const link of links) {
         result.streamsSkipped += 1;
         console.log('[Telegram] Stream storage result:', {
-          url: link,
+          url: link.url,
+          label: resolveStreamLabel(link, message.channel),
           matchId: targetMatches.matchIds[0] || null,
           confidenceScore: targetMatches.bestScore,
           reason: targetMatches.reason,
@@ -408,39 +430,100 @@ async function matchLinksToFixtures(messages: TelegramMessage[]): Promise<MatchL
   return result;
 }
 
+interface AcceptedLink {
+  url: string;
+  label: string;
+}
+
 function extractCandidateLinks(text: string): {
-  accepted: string[];
+  accepted: AcceptedLink[];
   discardedTelegram: string[];
+  discardedOther: string[];
 } {
-  const links = [
-    ...(text.match(GENERIC_URL_PATTERN) || []),
-    ...(text.match(RTMP_URL_PATTERN) || []),
-  ].map(cleanExtractedUrl);
-
-  const deduped = [...new Set(links)];
-  const accepted: string[] = [];
+  // Channels post one link per pair of lines: a human name ("Fox Sports",
+  // "M6") on one line and the URL on the next. We walk line-by-line so each
+  // URL keeps the label directly above it — the ?id= slug is NOT reliable
+  // (channels reuse/mismatch it, e.g. label "Tsn" over ?id=fox-sports).
+  const lines = text.split(/\r?\n/);
+  const accepted: AcceptedLink[] = [];
   const discardedTelegram: string[] = [];
+  const discardedOther: string[] = [];
+  const seen = new Set<string>();
   const hasStreamContext = hasStreamContextKeywords(text);
+  let pendingLabel = '';
 
-  for (const link of deduped) {
-    if (!link) continue;
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
 
-    if (isTelegramLink(link)) {
-      discardedTelegram.push(link);
+    const urlsInLine = [
+      ...(line.match(GENERIC_URL_PATTERN) || []),
+      ...(line.match(RTMP_URL_PATTERN) || []),
+    ].map(cleanExtractedUrl);
+
+    if (urlsInLine.length === 0) {
+      // A non-URL line is the label for the URL(s) that follow it.
+      pendingLabel = line;
       continue;
     }
 
-    if (!isLikelyStreamLink(link, hasStreamContext)) {
-      continue;
+    for (const url of urlsInLine) {
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
+
+      if (isTelegramLink(url)) {
+        discardedTelegram.push(url);
+        continue;
+      }
+
+      if (!isLikelyStreamLink(url, hasStreamContext)) {
+        discardedOther.push(url);
+        continue;
+      }
+
+      accepted.push({ url, label: cleanStreamLabel(pendingLabel) });
     }
 
-    accepted.push(link);
+    // Label is consumed once; the next URL must find its own preceding line.
+    pendingLabel = '';
   }
 
   return {
     accepted,
     discardedTelegram,
+    discardedOther,
   };
+}
+
+// Tidy a label line into a display name, dropping trailing promo emoji/symbols
+// and over-long junk. Returns '' when nothing usable remains (caller falls back
+// to the ?id= slug, then the channel name).
+function cleanStreamLabel(rawLabel: string): string {
+  const cleaned = rawLabel
+    .replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleaned || cleaned.length > 40) return '';
+  return cleaned;
+}
+
+// Best display name for a stream: the label line above the URL, else a
+// title-cased version of the ?id= slug, else attribution to the channel.
+function resolveStreamLabel(link: AcceptedLink, channel: string): string {
+  if (link.label) return link.label;
+
+  try {
+    const id = new URL(link.url).searchParams.get('id');
+    if (id) {
+      const pretty = id.replace(/[-_]+/g, ' ').trim();
+      if (pretty) return pretty.replace(/\b\w/g, (c) => c.toUpperCase());
+    }
+  } catch {
+    // ignore malformed URLs
+  }
+
+  return `Stream from @${channel}`;
 }
 
 function isTelegramLink(link: string): boolean {
@@ -464,8 +547,13 @@ function hasStreamContextKeywords(text: string): boolean {
 function isLikelyStreamLink(link: string, hasStreamContext: boolean): boolean {
   const lower = link.toLowerCase();
   try {
-    const hostname = new URL(link).hostname.toLowerCase();
+    const url = new URL(link);
+    const hostname = url.hostname.toLowerCase();
     if (KNOWN_STREAM_DOMAINS.includes(hostname)) return true;
+    // Any Cloudflare Pages/Workers host is one of the rotating stream sites.
+    if (STREAM_HOST_SUFFIXES.some((suffix) => hostname.endsWith(suffix))) return true;
+    // Player links carry the channel in a query param, e.g. ?id=fox-sports.
+    if (url.searchParams.has('id')) return true;
   } catch {
     // ignore malformed URLs
   }
