@@ -5,9 +5,9 @@
 //
 // Run locally:  npm run scrape:telegram   (loads creds from .env.local)
 // In CI:        creds come from GitHub Actions secrets via env vars.
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import nextEnv from '@next/env';
-import type { Match } from '../src/types';
-import { getAllMatches } from '../src/lib/matchService';
 import { scrapeTelegramChannels } from '../src/lib/telegramScraper';
 
 // Mark this as the standalone (non-Next.js) runtime so streamStore skips
@@ -19,36 +19,69 @@ process.env.SCRAPER_STANDALONE = 'true';
 // env vars are injected directly — process.env still wins for anything unset.
 nextEnv.loadEnvConfig(process.cwd());
 
-// Same window the old serverless route used, so we only connect to Telegram
-// when it's worthwhile (a match is live or within the kickoff window).
-const SCRAPE_WINDOW_BEFORE_KICKOFF_MS = 15 * 60 * 1000;
-const SCRAPE_WINDOW_AFTER_KICKOFF_MS = 3 * 60 * 60 * 1000;
+// How wide the "scrape now" window is around each kickoff. Deliberately
+// generous on both ends so we never miss live streams:
+//   - 90 min BEFORE: channels post links well ahead of kickoff, and this
+//     absorbs a match being rescheduled up to ~1.5h earlier than the snapshot.
+//   - 4 h AFTER: covers full time + extra time + penalties + post-match link
+//     availability, and absorbs kickoff delays.
+// A regular match is ~2h long inside a 5.5h window, so even an hour-scale
+// reschedule (the snapshot is 103/104 exact vs the live API; the lone diff was
+// a 1h move) still lands well within the window. Idle runs outside every
+// window make zero external API calls.
+const SCRAPE_WINDOW_BEFORE_KICKOFF_MS = 90 * 60 * 1000;
+const SCRAPE_WINDOW_AFTER_KICKOFF_MS = 4 * 60 * 60 * 1000;
 
-function isLiveMatch(match: Match): boolean {
-  return match.status === 'LIVE' || match.status === 'HALF_TIME';
+// Kickoff times are known ahead of time, so the "is anything worth scraping
+// right now?" gate reads the bundled fixture snapshot instead of hitting the
+// live football-data API. That keeps the every-5-min cadence (fresh links
+// during matches) while making idle runs cost zero external API calls — the
+// full live fetch still happens later, inside scrapeTelegramChannels(), but
+// only once we've decided to actually scrape. The +3h post-kickoff window
+// covers the entire live/half-time period, so no separate status check is
+// needed. Note: the live fetch would catch reschedules that the static
+// snapshot misses; WC fixtures rarely move, and a missed window only delays
+// links, it can't affect the website (which reads Supabase independently).
+const SCHEDULE_SNAPSHOT_PATH = path.join(
+  process.cwd(),
+  'src/data/worldCup2026MatchesSnapshot.json'
+);
+
+interface SnapshotMatch {
+  utcDate?: string;
+  homeTeam?: { name?: string };
+  awayTeam?: { name?: string };
 }
 
-function isNearKickoff(match: Match, now: number): boolean {
-  if (match.status === 'FINISHED' || match.status === 'POSTPONED') return false;
-  const diff = new Date(match.utcDate).getTime() - now;
-  return diff >= -SCRAPE_WINDOW_AFTER_KICKOFF_MS && diff <= SCRAPE_WINDOW_BEFORE_KICKOFF_MS;
+function loadScheduledKickoffs(): SnapshotMatch[] {
+  try {
+    const raw = JSON.parse(readFileSync(SCHEDULE_SNAPSHOT_PATH, 'utf8')) as {
+      matches?: SnapshotMatch[];
+    };
+    return raw.matches ?? [];
+  } catch (err) {
+    console.error('[scrape] Failed to read fixture snapshot:', err);
+    return [];
+  }
 }
 
-async function shouldScrape(): Promise<{ scrape: boolean; reason: string }> {
-  const matches = await getAllMatches();
+function shouldScrape(): { scrape: boolean; reason: string } {
   const now = Date.now();
+  const matches = loadScheduledKickoffs();
 
-  const live = matches.find(isLiveMatch);
-  if (live) {
-    return { scrape: true, reason: `live: ${live.homeTeam.name} vs ${live.awayTeam.name}` };
+  for (const match of matches) {
+    if (!match.utcDate) continue;
+    const kickoff = new Date(match.utcDate).getTime();
+    if (Number.isNaN(kickoff)) continue;
+
+    const diff = kickoff - now;
+    if (diff <= SCRAPE_WINDOW_BEFORE_KICKOFF_MS && diff >= -SCRAPE_WINDOW_AFTER_KICKOFF_MS) {
+      const label = `${match.homeTeam?.name ?? 'TBD'} vs ${match.awayTeam?.name ?? 'TBD'}`;
+      return { scrape: true, reason: `kickoff window: ${label}` };
+    }
   }
 
-  const near = matches.find((m) => isNearKickoff(m, now));
-  if (near) {
-    return { scrape: true, reason: `kickoff window: ${near.homeTeam.name} vs ${near.awayTeam.name}` };
-  }
-
-  return { scrape: false, reason: 'no live or near-kickoff matches' };
+  return { scrape: false, reason: 'no matches within kickoff window' };
 }
 
 async function main(): Promise<void> {
@@ -62,7 +95,7 @@ async function main(): Promise<void> {
   const force = process.argv.includes('--force') || process.env.FORCE_SCRAPE === 'true';
   const window = force
     ? { scrape: true, reason: 'forced (--force)' }
-    : await shouldScrape();
+    : shouldScrape();
   if (!window.scrape) {
     console.log(`[scrape] Skipping — ${window.reason}`);
     return;
