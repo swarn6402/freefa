@@ -6,7 +6,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # Project notes for agents
 
-FreeFA is a football match hub (see `CONTEXT.md` for architecture). A few things about *this* repo are easy to get wrong — read these before changing build, deploy, or scraper code.
+FreeFA is a football match hub. **Read [`CONTEXT.md`](./CONTEXT.md) first for the full architecture** — the two-halves-one-Supabase model (Cloudflare Workers website + GitHub Actions scraper), the data-enrichment pipeline, and the module map. The notes below are the things about *this* repo that are easy to get wrong; read them before changing build, deploy, or scraper code.
 
 ## Deployment: Cloudflare Workers, not Vercel
 
