@@ -13,6 +13,14 @@
 	"observability": {
 		"enabled": true
 	},
+	// Self-reference service binding required by OpenNext's memory queue, which
+	// processes ISR background revalidations (see open-next.config.ts).
+	"services": [
+		{
+			"binding": "WORKER_SELF_REFERENCE",
+			"service": "wc2026"
+		}
+	],
 	// KV namespace backing OpenNext's ISR / incremental cache.
 	"kv_namespaces": [
 		{
