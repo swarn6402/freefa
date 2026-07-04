@@ -52,7 +52,7 @@ Key modules:
 
 - **`matchService.ts`** — the hub. Fetches fixtures, runs enrichment, caches for 120s, and exposes `getAllMatches` / `getMatchById` / `getLiveMatches` / `getUpcomingMatches` / `getFinishedMatches` / stream helpers. Falls back to a bundled snapshot (`src/data/worldCup2026MatchesSnapshot.json`) in production, or generated fixtures (`fixtures.ts`) in local dev, if the API fails.
 - **`standingsService.ts`** — computes group tables from results (points, GD, form) rather than hardcoding them.
-- **`streamStore.ts`** — Supabase persistence for stream links; dedupes by `(match_id, url)`; targeted `revalidatePath` per match (skipped when `SCRAPER_STANDALONE=true`). Falls back to an in-memory map when Supabase is unconfigured.
+- **`streamStore.ts`** — Supabase persistence for stream links; dedupes by `(match_id, url)`. Match pages are dynamic and stream panels poll `/api/streams`, so stream inserts do not trigger `revalidatePath`/KV writes. Falls back to an in-memory map when Supabase is unconfigured.
 - **`espnService.ts` / `apiFootballService.ts` / `venueEnrichment.ts`** — enrichment layers.
 - **`supabaseServer.ts`** — server-side Supabase admin client.
 
@@ -86,10 +86,10 @@ App Router pages + read API routes.
 
 | Page | Revalidate | Content |
 |------|-----------|---------|
-| `/` | 1h | Static shell + client-side feeds (hero, live, upcoming, recent, standings snapshot) |
-| `/standings` | 1h | Computed group tables |
+| `/` | Dynamic | Homepage shell + client-side feeds (hero, live, upcoming, recent, standings snapshot); request-rendered to avoid high-churn KV writes |
+| `/standings` | Dynamic | Computed group tables; request-rendered to avoid KV data-cache writes |
 | `/schedule` | 1d | Full fixture list grouped by date/stage |
-| `/match/[id]` | 45s | Score, venue, kickoff, streams, events |
+| `/match/[id]` | Dynamic | Score, venue, kickoff, streams, events; rendered on request to avoid hot-match ISR/KV write churn |
 
 Fast-changing homepage sections (`FeaturedHeroFeed`, `LiveMatchesFeed`, `RecentResultsFeed`, `ScheduleMatchesFeed`) fetch client-side so the static shell can stay cached without burning ISR/KV writes.
 
