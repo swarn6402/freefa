@@ -6,12 +6,12 @@ import { StandingsTable } from '@/components/match/StandingsTable';
 import { getFinishedMatches, getUpcomingMatches } from '@/lib/matchService';
 import { getGroupStandings } from '@/lib/standingsService';
 
-export const revalidate = 3600;
+export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   const [upcomingMatches, finishedMatches, standings] = await Promise.all([
     getUpcomingMatches(9),
-    getFinishedMatches(1, 3600),
+    getFinishedMatches(1),
     getGroupStandings(),
   ]);
 
