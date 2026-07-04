@@ -3,7 +3,7 @@ import { MatchDetailRecovery } from '@/components/match/MatchDetailRecovery';
 import { MatchDetailView } from '@/components/match/MatchDetailView';
 import { MatchDataUnavailableError, getMatchById, getMatchWithStreams } from '@/lib/matchService';
 
-export const revalidate = 45;
+export const dynamic = 'force-dynamic';
 
 export default async function MatchDetailPage({
   params,
