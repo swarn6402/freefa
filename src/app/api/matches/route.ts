@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
 
     const matches =
       status === 'FINISHED'
-        ? await getFinishedMatches(limit ?? 6, 60)
+        ? await getFinishedMatches(limit ?? 6)
         : await getAllMatches();
 
     const withStreams = await getMatchesWithStreams(matches);
