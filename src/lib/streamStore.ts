@@ -46,7 +46,6 @@ export async function addStreamLink(link: StreamLink): Promise<boolean> {
     return addStreamLinkToMemory(link);
   }
 
-  safeRevalidateStreamPath(link.matchId);
   return true;
 }
 
@@ -155,29 +154,7 @@ function addStreamLinkToMemory(link: StreamLink): boolean {
   }
 
   FALLBACK_STREAM_STORE.set(link.matchId, [...existing, link]);
-  safeRevalidateStreamPath(link.matchId);
   return true;
-}
-
-function safeRevalidateStreamPath(matchId: string): void {
-  // The standalone Telegram scraper (GitHub Actions) has no Next.js request
-  // context, so revalidatePath always throws there. Skip it outright rather
-  // than import-throw-catch once per stored link.
-  if (process.env.SCRAPER_STANDALONE === 'true') {
-    return;
-  }
-
-  // Imported lazily so this module can run outside Next.js (e.g. the
-  // standalone Telegram scraper on GitHub Actions), where `next/cache`
-  // has no request context. Fire-and-forget; failures are swallowed.
-  void (async () => {
-    try {
-      const { revalidatePath } = await import('next/cache');
-      revalidatePath(`/match/${matchId}`);
-    } catch (error) {
-      console.warn('[streamStore] Skipping revalidation outside request context:', error);
-    }
-  })();
 }
 
 function toStreamLinkRow(link: StreamLink): StreamLinkRow {
