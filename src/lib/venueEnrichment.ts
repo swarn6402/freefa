@@ -122,7 +122,7 @@ async function getOfficialVenueIndex(): Promise<OfficialVenueIndex> {
 
 async function fetchOfficialVenueMatches(): Promise<OfficialVenueMatch[]> {
   const response = await fetch(FIFA_SUITES_EVENTS_URL, {
-    next: { revalidate: 60 * 60 * 24 },
+    cache: 'no-store',
   });
 
   if (!response.ok) {
