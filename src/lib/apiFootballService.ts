@@ -165,8 +165,7 @@ async function getWorldCupFixtures(): Promise<ApiFootballFixture[]> {
     {
       league: String(WORLD_CUP_LEAGUE_ID),
       season: String(WORLD_CUP_SEASON),
-    },
-    1800
+    }
   );
 
   scheduleCache = response;
@@ -184,8 +183,7 @@ async function getFixtureDetail(fixtureId: number): Promise<ApiFootballFixture |
 
   const response = await fetchApiFootball<ApiFootballFixture>(
     '/fixtures',
-    { id: String(fixtureId) },
-    30
+    { id: String(fixtureId) }
   );
 
   const fixture = response[0] || null;
@@ -198,8 +196,7 @@ async function getFixtureDetail(fixtureId: number): Promise<ApiFootballFixture |
 
 async function fetchApiFootball<T>(
   path: string,
-  params: Record<string, string>,
-  revalidateSeconds: number
+  params: Record<string, string>
 ): Promise<T[]> {
   const apiKey = process.env.API_FOOTBALL_KEY;
   if (!apiKey) {
@@ -212,7 +209,7 @@ async function fetchApiFootball<T>(
     headers: {
       'x-apisports-key': apiKey,
     },
-    next: { revalidate: revalidateSeconds },
+    cache: 'no-store',
   });
 
   if (!response.ok) {
