@@ -2,7 +2,6 @@ import { Match, MatchEvent } from '@/types';
 
 const ESPN_SCOREBOARD_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard';
 const SCOREBOARD_CACHE_TTL = 60 * 1000;
-const DEFAULT_ESPN_REVALIDATE_SECONDS = 60;
 
 interface EspnScoreboardResponse {
   events?: EspnEvent[];
@@ -65,19 +64,13 @@ interface EspnDetail {
 
 const scoreboardCache = new Map<string, { fetchedAt: number; events: EspnEvent[] }>();
 
-export async function enrichMatchWithEspnEvents(
-  match: Match,
-  options?: { revalidateSeconds?: number }
-): Promise<Match> {
+export async function enrichMatchWithEspnEvents(match: Match): Promise<Match> {
   if (match.status === 'SCHEDULED') {
     return match;
   }
 
   try {
-    const candidates = await getCandidateEspnEvents(
-      match.utcDate,
-      options?.revalidateSeconds ?? DEFAULT_ESPN_REVALIDATE_SECONDS
-    );
+    const candidates = await getCandidateEspnEvents(match.utcDate);
     const espnEvent = findMatchingEspnEvent(match, candidates);
     if (!espnEvent) {
       return match;
@@ -110,15 +103,15 @@ export async function enrichMatchWithEspnEvents(
   }
 }
 
-async function getCandidateEspnEvents(utcDate: string, revalidateSeconds: number): Promise<EspnEvent[]> {
+async function getCandidateEspnEvents(utcDate: string): Promise<EspnEvent[]> {
   const dates = getEspnDateWindow(utcDate);
   const eventLists = await Promise.all(
-    dates.map((date) => getScoreboardEventsForDate(date, revalidateSeconds))
+    dates.map((date) => getScoreboardEventsForDate(date))
   );
   return eventLists.flat();
 }
 
-async function getScoreboardEventsForDate(date: string, revalidateSeconds: number): Promise<EspnEvent[]> {
+async function getScoreboardEventsForDate(date: string): Promise<EspnEvent[]> {
   const cached = scoreboardCache.get(date);
   const now = Date.now();
 
@@ -127,7 +120,7 @@ async function getScoreboardEventsForDate(date: string, revalidateSeconds: numbe
   }
 
   const response = await fetch(`${ESPN_SCOREBOARD_URL}?dates=${date}`, {
-    next: { revalidate: revalidateSeconds },
+    cache: 'no-store',
   });
 
   if (!response.ok) {
@@ -313,10 +306,7 @@ function parseEspnMinute(displayValue?: string, fallbackClockValue?: number): nu
  * Collects unique dates, fetches each once (cached), then patches scores
  * via existing team-matching logic. Only touches matches missing scores.
  */
-export async function enrichMatchesWithEspnScores(
-  matches: Match[],
-  revalidateSeconds = DEFAULT_ESPN_REVALIDATE_SECONDS
-): Promise<Match[]> {
+export async function enrichMatchesWithEspnScores(matches: Match[]): Promise<Match[]> {
   const candidates = matches.filter(
     (m) => (m.status === 'FINISHED' || m.status === 'LIVE' || m.status === 'HALF_TIME') && (m.score.home === null || m.score.away === null)
   );
@@ -327,7 +317,7 @@ export async function enrichMatchesWithEspnScores(
   const allEspnEvents: EspnEvent[] = [];
   for (const date of uniqueDates) {
     try {
-      allEspnEvents.push(...(await getScoreboardEventsForDate(date, revalidateSeconds)));
+      allEspnEvents.push(...(await getScoreboardEventsForDate(date)));
     } catch {
       // Individual date fetch failure is non-fatal; skip
     }
