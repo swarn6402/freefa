@@ -19,7 +19,7 @@ FreeFA is a football match hub. **Read [`CONTEXT.md`](./CONTEXT.md) first for th
 
 - The Telegram scraper is a standalone Node script, `scripts/scrape-telegram.mts` (run via `npm run scrape:telegram`), scheduled by `.github/workflows/telegram-scrape.yml` (every 5 min + manual `workflow_dispatch` with a `force` input). It writes stream links straight to Supabase.
 - It uses **GramJS (MTProto over raw TCP)**, which does **not** run on Cloudflare Workers — that's why scraping lives on GitHub Actions, not in the Worker.
-- The script sets `process.env.SCRAPER_STANDALONE = 'true'` so `streamStore.ts` skips `revalidatePath` (no Next request context exists there).
+- The script sets `process.env.SCRAPER_STANDALONE = 'true'` for standalone-runtime checks; stream inserts do not call `revalidatePath` because match pages are dynamic and stream panels poll `/api/streams`.
 - The `src/app/api/telegram/route.ts` route is legacy/manual only; the scheduled path is the standalone script.
 
 ## General
