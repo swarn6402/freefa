@@ -141,7 +141,7 @@ function StreamRow({ stream, index }: { stream: StreamLink; index: number }) {
 
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-white transition-colors group-hover:text-wc-gold">
-          {isMeaningfulLabel(stream.label) ? stream.label : `Stream ${index}`}
+          Stream {index}
         </p>
       </div>
 
@@ -161,17 +161,6 @@ function StreamRow({ stream, index }: { stream: StreamLink; index: number }) {
       </span>
     </a>
   );
-}
-
-// A label is only worth showing if it actually describes the stream. The scraper
-// uses placeholder labels ("Live stream", "Stream from @<channelId>") that carry
-// no useful info, so those fall back to the positional "Stream N".
-function isMeaningfulLabel(label: string | undefined): label is string {
-  if (!label) return false;
-  const trimmed = label.trim();
-  if (!trimmed || trimmed === 'Live stream') return false;
-  if (trimmed.toLowerCase().startsWith('stream from @')) return false;
-  return true;
 }
 
 function deduplicateStreams(streams: StreamLink[]): StreamLink[] {
