@@ -22,6 +22,12 @@ FreeFA is a football match hub. **Read [`CONTEXT.md`](./CONTEXT.md) first for th
 - The script sets `process.env.SCRAPER_STANDALONE = 'true'` for standalone-runtime checks; stream inserts do not call `revalidatePath` because match pages are dynamic and stream panels poll `/api/streams`.
 - The `src/app/api/telegram/route.ts` route is legacy/manual only; the scheduled path is the standalone script.
 
+## Match data: never fetch football-data.org from the Worker
+
+- **The Worker reads matches from Supabase, never from football-data.org.** The match cache in `matchService.ts` is per-isolate, so a direct edge fetch means one upstream request per cold isolate — that sustained load on the free tier (10 req/min) is what got a key disabled. Don't reintroduce an edge-side football-data.org fetch.
+- The **only** caller of football-data.org is `scripts/refresh-matches.mts` (`npm run refresh:matches`), scheduled by `.github/workflows/refresh-matches.yml` (every 15 min + manual `workflow_dispatch`). It fetches once, enriches, and upserts the whole match list into the Supabase `matches_cache` table (`matchStore.ts`). The Worker reads that shared row; if it's empty it falls back to the bundled `worldCup2026MatchesSnapshot.json`.
+- Knockout fixtures arrive from football-data.org as `TBD` until teams are decided. `enrichMatchesWithEspnTeams` (in `espnService.ts`) backfills team name/tla/flag from ESPN by kickoff proximity, and must run **before** the ESPN score pass (which matches events by team identity).
+
 ## General
 
 - Windows dev host. `npm run preview` (local workerd) tends to hang on Windows — deploy to the real edge instead of relying on local preview.
