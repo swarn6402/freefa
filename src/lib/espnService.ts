@@ -1,4 +1,5 @@
-import { Match, MatchEvent } from '@/types';
+import { Match, MatchEvent, Team } from '@/types';
+import { getFlagForTeam } from './teamFlags';
 
 const ESPN_SCOREBOARD_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard';
 const SCOREBOARD_CACHE_TTL = 60 * 1000;
@@ -181,7 +182,113 @@ function findMatchingEspnEvent(match: Match, events: EspnEvent[]): EspnEvent | n
     .filter((entry): entry is { event: EspnEvent; diffHours: number } => Boolean(entry))
     .sort((a, b) => a.diffHours - b.diffHours);
 
-  return candidates[0]?.event || null;
+  if (candidates[0]) {
+    return candidates[0].event;
+  }
+
+  // Identity matching fails for still-undetermined knockout fixtures (both teams
+  // are "TBD"), so fall back to kickoff proximity: pick the single ESPN event
+  // whose kickoff is closest to this fixture, within a tight window. Kickoffs in
+  // the knockout rounds are spaced hours apart, so the nearest one is reliable.
+  if (hasUndeterminedTeam(match)) {
+    const byKickoff = events
+      .map((event) => {
+        const competition = event.competitions?.[0];
+        const competitors = competition?.competitors || [];
+        const home = competitors.find((entry) => entry.homeAway === 'home');
+        const away = competitors.find((entry) => entry.homeAway === 'away');
+        if (!home || !away) {
+          return null;
+        }
+        const kickoff = new Date(competition?.date || event.date).getTime();
+        const diffHours = Math.abs(kickoff - matchTime) / (1000 * 60 * 60);
+        return { event, diffHours };
+      })
+      .filter((entry): entry is { event: EspnEvent; diffHours: number } => Boolean(entry))
+      .filter((entry) => entry.diffHours <= 3)
+      .sort((a, b) => a.diffHours - b.diffHours);
+
+    return byKickoff[0]?.event || null;
+  }
+
+  return null;
+}
+
+// A team is "undetermined" when upstream hasn't assigned it yet — the mapper
+// fills such slots with the literal "TBD" placeholder and a blank flag.
+function isUndeterminedTeam(team: Match['homeTeam']): boolean {
+  return !team || !team.tla || team.tla === 'TBD' || !team.name || team.name === 'TBD';
+}
+
+function hasUndeterminedTeam(match: Match): boolean {
+  return isUndeterminedTeam(match.homeTeam) || isUndeterminedTeam(match.awayTeam);
+}
+
+function espnCompetitorToTeam(competitor: EspnCompetitor, fallbackId: number): Team {
+  const tla = (competitor.team?.abbreviation || '').toUpperCase();
+  const name =
+    competitor.team?.displayName ||
+    competitor.team?.name ||
+    competitor.team?.location ||
+    competitor.team?.shortDisplayName ||
+    'TBD';
+
+  return {
+    id: fallbackId,
+    name,
+    shortName: competitor.team?.shortDisplayName || competitor.team?.name || name,
+    tla: tla || 'TBD',
+    flag: getFlagForTeam(tla || undefined),
+  };
+}
+
+/**
+ * Backfill team identity (name / shortName / tla / flag) for fixtures whose
+ * teams are still "TBD" — i.e. knockout matches the football-data feed hasn't
+ * populated yet. ESPN's scoreboard already knows the real teams, so we match by
+ * date + kickoff proximity and copy them in. Only TBD slots are touched;
+ * already-known teams are left exactly as-is.
+ *
+ * Run this BEFORE enrichMatchesWithEspnScores so the score pass (which matches
+ * ESPN events by team identity) can then find these fixtures too.
+ */
+export async function enrichMatchesWithEspnTeams(matches: Match[]): Promise<Match[]> {
+  const candidates = matches.filter(hasUndeterminedTeam);
+  if (candidates.length === 0) return matches;
+
+  const uniqueDates = [...new Set(candidates.map((m) => formatEspnDate(new Date(m.utcDate))))];
+  const allEspnEvents: EspnEvent[] = [];
+  for (const date of uniqueDates) {
+    try {
+      allEspnEvents.push(...(await getScoreboardEventsForDate(date)));
+    } catch {
+      // Individual date fetch failure is non-fatal; skip.
+    }
+  }
+
+  if (allEspnEvents.length === 0) return matches;
+
+  return matches.map((match) => {
+    if (!hasUndeterminedTeam(match)) return match;
+
+    const espnEvent = findMatchingEspnEvent(match, allEspnEvents);
+    if (!espnEvent) return match;
+
+    const competitors = espnEvent.competitions?.[0]?.competitors || [];
+    const home = competitors.find((entry) => entry.homeAway === 'home');
+    const away = competitors.find((entry) => entry.homeAway === 'away');
+    if (!home || !away) return match;
+
+    return {
+      ...match,
+      homeTeam: isUndeterminedTeam(match.homeTeam)
+        ? espnCompetitorToTeam(home, match.homeTeam?.id ?? -1)
+        : match.homeTeam,
+      awayTeam: isUndeterminedTeam(match.awayTeam)
+        ? espnCompetitorToTeam(away, match.awayTeam?.id ?? -2)
+        : match.awayTeam,
+    };
+  });
 }
 
 function isSameTeam(matchTeam: Match['homeTeam'], espnTeam?: EspnCompetitor['team']): boolean {
