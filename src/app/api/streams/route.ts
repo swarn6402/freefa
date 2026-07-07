@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStreamLinks, addStreamLink } from '@/lib/matchService';
+import { jsonWithEdgeCache } from '@/lib/edgeCache';
 import { StreamLink } from '@/types';
 
 export async function GET(req: NextRequest) {
@@ -7,14 +8,10 @@ export async function GET(req: NextRequest) {
   if (!matchId) {
     return NextResponse.json({ error: 'matchId required' }, { status: 400 });
   }
-  const streams = await getStreamLinks(matchId);
-  return NextResponse.json(
-    { streams },
-    {
-      headers: {
-        'Cache-Control': 's-maxage=60, stale-while-revalidate=30',
-      },
-    }
+
+  return jsonWithEdgeCache(
+    async () => ({ streams: await getStreamLinks(matchId) }),
+    { key: req.url, ttlSeconds: 60, staleWhileRevalidateSeconds: 30 }
   );
 }
 
