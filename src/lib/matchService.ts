@@ -1,8 +1,10 @@
 import { Match, StreamLink } from '@/types';
 import { enrichMatchWithApiFootballDetail, enrichMatchesWithApiFootballSchedule } from './apiFootballService';
-import { enrichMatchWithEspnEvents, enrichMatchesWithEspnScores } from './espnService';
-import { generateFixtures, TEAMS } from './fixtures';
+import { enrichMatchWithEspnEvents, enrichMatchesWithEspnScores, enrichMatchesWithEspnTeams } from './espnService';
+import { generateFixtures } from './fixtures';
+import { getFlagForTeam } from './teamFlags';
 import { enrichMatchesWithOfficialVenues } from './venueEnrichment';
+import { readMatchesSnapshot } from './matchStore';
 import officialMatchSnapshot from '@/data/worldCup2026MatchesSnapshot.json';
 import {
   addStreamLink as addPersistentStreamLink,
@@ -24,80 +26,61 @@ export class MatchDataUnavailableError extends Error {
   }
 }
 
-const FLAG_BY_TLA: Record<string, string> = {
-  ...Object.fromEntries(Object.values(TEAMS).map((team) => [team.tla, team.flag])),
-  ALG: '🇩🇿',
-  AUT: '🇦🇹',
-  COL: '🇨🇴',
-  CPV: '🇨🇻',
-  CUW: '🇨🇼',
-  CZE: '🇨🇿',
-  EGY: '🇪🇬',
-  GHA: '🇬🇭',
-  HAI: '🇭🇹',
-  IRQ: '🇮🇶',
-  JOR: '🇯🇴',
-  PAR: '🇵🇾',
-  RSA: '🇿🇦',
-  SCO: '🏴',
-  SWE: '🇸🇪',
-  SUI: '🇨🇭',
-  TUN: '🇹🇳',
-  TUR: '🇹🇷',
-  URY: '🇺🇾',
-  UZB: '🇺🇿',
-};
-
-function getFlagForTeam(tla?: string): string {
-  if (!tla) return '🏳️';
-  return FLAG_BY_TLA[tla] || '🏳️';
-}
-
 export async function getAllMatches(): Promise<Match[]> {
   if (matchCache && Date.now() - matchCache.timestamp < MATCH_CACHE_TTL_MS) {
     return matchCache.data;
   }
 
   try {
-    // Try the football-data.org API first (free tier)
-    const apiKey = process.env.FOOTBALL_DATA_API_KEY;
-    console.log('[matchService] FOOTBALL_DATA_API_KEY detected:', Boolean(apiKey));
+    // Read the shared snapshot the scheduled job wrote to Supabase. The edge
+    // NEVER calls football-data.org directly — that fetch lives in
+    // scripts/refresh-matches.mts so a single request per refresh serves every
+    // Worker isolate (a per-isolate direct fetch is what got the old key
+    // disabled). ESPN enrichment still runs here for live freshness.
+    const stored = await readMatchesSnapshot();
 
-    if (apiKey) {
-      const url = 'https://api.football-data.org/v4/competitions/WC/matches?season=2026';
-      console.log('[matchService] Requesting football-data.org matches:', url);
-
-      const res = await fetch(
-        url,
-        {
-          headers: { 'X-Auth-Token': apiKey },
-        }
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        const mapped = await enrichMatchesWithApiFootballSchedule(
-          await enrichMatchesWithOfficialVenues(mapFootballDataMatches(data.matches))
-        );
-        console.log('[matchService] football-data.org request succeeded:', res.status);
-        console.log('[matchService] football-data.org matches returned:', mapped.length);
-        const result = await enrichMatchesWithEspnScores(normalizeMatchesForTimeline(mapped));
-        matchCache = { data: result, timestamp: Date.now() };
-        return result;
-      }
-
-      console.warn('[matchService] football-data.org request failed:', res.status, res.statusText);
-      return getFallbackMatches('football-data.org request failed');
-    } else {
-      console.log('[matchService] No football-data.org API key found');
-      return getFallbackMatches('missing FOOTBALL_DATA_API_KEY');
+    if (stored && stored.length > 0) {
+      const withTeams = await enrichMatchesWithEspnTeams(normalizeMatchesForTimeline(stored));
+      const result = await enrichMatchesWithEspnScores(withTeams);
+      matchCache = { data: result, timestamp: Date.now() };
+      console.log('[matchService] Served matches from Supabase snapshot:', result.length);
+      return result;
     }
+
+    console.warn('[matchService] Supabase match snapshot empty/unavailable; using fallback');
+    return getFallbackMatches('empty Supabase match snapshot');
   } catch (error) {
-    console.error('[matchService] football-data.org request threw an error:', error);
-    return getFallbackMatches('football-data.org request threw an error');
+    console.error('[matchService] Failed to read Supabase match snapshot:', error);
+    return getFallbackMatches('Supabase match snapshot read threw an error');
+  }
+}
+
+/**
+ * Fetch football-data.org once and build the fully-enriched match list. This is
+ * the ONLY place that calls football-data.org, and it is invoked exclusively by
+ * the scheduled refresh job (scripts/refresh-matches.mts) — never on the request
+ * path. Throws on a missing key or a non-OK response so the job can surface it.
+ */
+export async function fetchAndBuildMatchSnapshot(): Promise<Match[]> {
+  const apiKey = process.env.FOOTBALL_DATA_API_KEY;
+  if (!apiKey) {
+    throw new Error('Missing FOOTBALL_DATA_API_KEY');
   }
 
-  return getFallbackMatches('football-data.org request did not return matches');
+  const url = 'https://api.football-data.org/v4/competitions/WC/matches?season=2026';
+  const res = await fetch(url, { headers: { 'X-Auth-Token': apiKey } });
+
+  if (!res.ok) {
+    throw new Error(`football-data.org request failed: ${res.status} ${res.statusText}`);
+  }
+
+  const data = await res.json();
+  const mapped = mapFootballDataMatches(data.matches);
+  const withVenues = await enrichMatchesWithOfficialVenues(mapped);
+  const withSchedule = await enrichMatchesWithApiFootballSchedule(withVenues);
+  // Bake knockout team identity into the stored snapshot so even upcoming
+  // (not-yet-live) knockout fixtures carry real teams/flags off the edge.
+  return enrichMatchesWithEspnTeams(withSchedule);
 }
 
 async function getFallbackMatches(reason: string): Promise<Match[]> {
@@ -113,7 +96,8 @@ async function getFallbackMatches(reason: string): Promise<Match[]> {
         mapFootballDataMatches(officialMatchSnapshot.matches)
       )
     );
-    const result = await enrichMatchesWithEspnScores(normalizeMatchesForTimeline(snapshotMatches));
+    const withTeams = await enrichMatchesWithEspnTeams(normalizeMatchesForTimeline(snapshotMatches));
+    const result = await enrichMatchesWithEspnScores(withTeams);
     matchCache = { data: result, timestamp: Date.now() };
     return result;
   }
