@@ -13,7 +13,10 @@ interface HomeFeedProps {
   initialMatch: Match | null;
 }
 
-const LIVE_POLL_INTERVAL_MS = 30 * 1000;
+// 60s aligns with the /api/matches edge-cache TTL: a client poll lands at most
+// once per cache window, so even cache misses stay ~1 origin read/60s/POP.
+// Live scores also refresh independently via ESPN, so 60s here is imperceptible.
+const LIVE_POLL_INTERVAL_MS = 60 * 1000;
 const IDLE_POLL_INTERVAL_MS = 3 * 60 * 1000;
 
 export function HomeFeed({ initialMatch }: HomeFeedProps) {
