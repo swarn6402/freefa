@@ -118,13 +118,15 @@ Fast-changing homepage sections (`FeaturedHeroFeed`, `LiveMatchesFeed`, `RecentR
 
 **Scraper → GitHub Actions.** `.github/workflows/telegram-scrape.yml` runs `npm run scrape:telegram` every 5 minutes (plus manual `workflow_dispatch` with a `force` input).
 
+**Match refresh → GitHub Actions.** `.github/workflows/refresh-matches.yml` runs `npm run refresh:matches` every 15 minutes (plus manual `workflow_dispatch`). It is the **only** caller of football-data.org: it fetches once, enriches (venues + API-Football schedule + ESPN knockout-team backfill), and upserts the whole match list as a single JSON blob into the Supabase `matches_cache` table. The Worker reads that shared row instead of calling football-data.org per request. This exists because the Worker's match cache is per-isolate, so a direct edge fetch meant one football-data.org request per cold isolate — enough sustained load on the free tier (10 req/min) to get an API key disabled. See the gotcha below.
+
 **Vercel.** A legacy Vercel deployment remains as a passive, read-only website fallback. Its scraping cron has been removed; it writes nothing.
 
 ### Secrets
 
-Cloudflare Worker secrets (website): `FOOTBALL_DATA_API_KEY`, `API_FOOTBALL_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `ADMIN_SECRET`.
+Cloudflare Worker secrets (website): `API_FOOTBALL_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `ADMIN_SECRET`. The Worker no longer needs `FOOTBALL_DATA_API_KEY` — it reads matches from Supabase, never from football-data.org directly.
 
-GitHub Actions secrets (scraper): `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_SESSION_STRING`, `TELEGRAM_CHANNELS`, `FOOTBALL_DATA_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (+ optional `API_FOOTBALL_KEY`).
+GitHub Actions secrets (scraper + match refresh): `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_SESSION_STRING`, `TELEGRAM_CHANNELS`, `FOOTBALL_DATA_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (+ optional `API_FOOTBALL_KEY`).
 
 ---
 
@@ -135,16 +137,20 @@ src/
   app/            # App Router pages + api/ (matches, streams, telegram)
   components/     # layout/, match/, stream/, ui/, and homepage feed components
   lib/            # matchService, standingsService, telegramScraper, streamStore,
-                  # espnService, apiFootballService, venueEnrichment, supabaseServer, fixtures
+                  # espnService, apiFootballService, venueEnrichment, supabaseServer, fixtures,
+                  # matchStore (Supabase matches_cache read/write), teamFlags (tla→flag)
   types/          # shared TypeScript models (Match, Team, StreamLink, GroupStanding, …)
   data/           # worldCup2026MatchesSnapshot.json (production fallback)
 scripts/
   scrape-telegram.mts        # standalone scraper runner (GitHub Actions entrypoint)
+  refresh-matches.mts        # standalone match-refresh runner (only football-data.org caller)
   create-telegram-session.mjs# one-time GramJS session-string generator
 supabase/
   stream_links.sql           # stream_links table schema
+  matches_cache.sql          # matches_cache table (shared match snapshot blob)
 .github/workflows/
   telegram-scrape.yml        # 5-min scrape schedule
+  refresh-matches.yml        # 15-min match-refresh schedule
 wrangler.jsonc, open-next.config.ts   # Cloudflare Workers / OpenNext config
 ```
 
@@ -153,6 +159,7 @@ wrangler.jsonc, open-next.config.ts   # Cloudflare Workers / OpenNext config
 ## Conventions & gotchas
 
 - **Two runtimes, one DB.** Website = Cloudflare Worker (fetch + Supabase-over-HTTP only, no Node built-ins). Scraper = full Node on GitHub Actions (GramJS needs raw TCP). Don't move GramJS into the Worker.
+- **Never fetch football-data.org from the Worker.** The match cache is per-isolate, so an edge fetch = one upstream request per cold isolate, which sustained-abuses the free tier (10 req/min) and gets keys disabled. The scheduled `refresh-matches` job is the single caller; the Worker only reads Supabase (`matchStore`), falling back to the bundled `worldCup2026MatchesSnapshot.json`. ESPN backfill (`enrichMatchesWithEspnTeams`) fills knockout team identity/flags when the feed still has `TBD` slots.
 - **Logging:** services log with `[Module]` prefixes; the scraper prints a per-run summary (`channelsLoaded`, `urlsExtracted`, `streamsStored`, …) — the primary diagnostic surface.
 - **No test suite** currently. Highest-value future coverage: link extraction/matching, standings computation, stream dedup.
 - Timezone is viewer-local (browser), not a fixed offset.
