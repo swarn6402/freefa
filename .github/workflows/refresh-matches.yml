@@ -1,0 +1,40 @@
+name: Refresh Matches
+
+# Fetches football-data.org ONCE per run and writes the enriched match snapshot
+# to Supabase, which every Cloudflare Worker isolate then reads. This is the only
+# thing that calls football-data.org, so the free-tier 10 req/min limit is never
+# a concern: one request every 15 minutes = 4/hour. ESPN handles live scores at
+# the edge, so a 15-minute skeleton refresh is plenty.
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'  # every 15 min, off the :00 mark
+  workflow_dispatch:              # manual trigger
+
+concurrency:
+  group: refresh-matches
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Refresh match snapshot
+        env:
+          FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: npm run refresh:matches
