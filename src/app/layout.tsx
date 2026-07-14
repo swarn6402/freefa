@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Analytics } from '@vercel/analytics/next';
 import { Inter, Sora } from 'next/font/google';
 import { Header } from '@/components/layout/Header';
+import { SupportPopup } from '@/components/ui/SupportPopup';
 import './globals.css';
 
 const inter = Inter({
@@ -50,6 +51,7 @@ export default function RootLayout({
             </p>
           </div>
         </footer>
+        <SupportPopup />
         <Analytics />
       </body>
     </html>
